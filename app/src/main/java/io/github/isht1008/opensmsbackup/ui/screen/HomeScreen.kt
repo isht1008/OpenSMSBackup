@@ -22,9 +22,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
+import io.github.isht1008.opensmsbackup.ui.component.StatusCard
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onBackupClick: () -> Unit
+) {
 
     var status by remember {
         mutableStateOf("Ready")
@@ -58,7 +61,8 @@ fun HomeScreen() {
             PrimaryButton(
                 text = "Backup SMS",
                 onClick = {
-                    status = "Backup button pressed"
+                    status = "Checking permissions..."
+                    onBackupClick()
                 }
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -77,13 +81,8 @@ fun HomeScreen() {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            Text(
-                text = "Status",
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = status
+            StatusCard(
+                status = status
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -99,6 +98,8 @@ fun HomeScreen() {
 @Composable
 fun HomeScreenPreview() {
     OpenSMSBackupTheme {
-        HomeScreen()
+        HomeScreen(
+            onBackupClick = {}
+        )
     }
 }
