@@ -4,6 +4,8 @@ import io.github.isht1008.opensmsbackup.backup.BackupResult
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
+import io.github.isht1008.opensmsbackup.util.SmsTypeUtils
+
 
 class JsonBackupWriter {
 
@@ -13,13 +15,42 @@ class JsonBackupWriter {
 
         val root = JSONObject()
 
-        root.put("formatVersion", 1)
+        root.put("formatVersion", 2)
         root.put("createdAt", Instant.now().toString())
-        root.put("applicationName", "OpenSMS Backup")
-        root.put("applicationVersion", "1.0")
 
-        root.put("totalMessages", backup.totalMessages)
-        root.put("totalConversations", backup.totalConversations)
+        root.put(
+            "backupTimeZone",
+            java.util.TimeZone.getDefault().id
+        )
+
+        root.put(
+            "backupLocale",
+            java.util.Locale.getDefault().toLanguageTag()
+        )
+
+        val application = JSONObject()
+
+        application.put("name", "OpenSMS Backup")
+        application.put("version", "1.0")
+
+        root.put("application", application)
+
+        val device = JSONObject()
+
+        device.put("manufacturer", android.os.Build.MANUFACTURER)
+        device.put("brand", android.os.Build.BRAND)
+        device.put("model", android.os.Build.MODEL)
+        device.put("androidVersion", android.os.Build.VERSION.RELEASE)
+        device.put("sdkInt", android.os.Build.VERSION.SDK_INT)
+
+        root.put("device", device)
+
+        val statistics = JSONObject()
+
+        statistics.put("totalMessages", backup.totalMessages)
+        statistics.put("totalConversations", backup.totalConversations)
+
+        root.put("statistics", statistics)
 
         val conversationsArray = JSONArray()
 
@@ -46,7 +77,17 @@ class JsonBackupWriter {
                 messageObject.put("id", message.id)
                 messageObject.put("body", message.body)
                 messageObject.put("date", message.date)
-                messageObject.put("type", message.type)
+                messageObject.put("dateFormatted", message.dateFormatted)
+
+                messageObject.put(
+                    "type",
+                    SmsTypeUtils.getTypeName(message.type)
+                )
+
+                messageObject.put(
+                    "typeCode",
+                    message.type
+                )
 
                 messagesArray.put(messageObject)
             }
@@ -66,4 +107,4 @@ class JsonBackupWriter {
 
         return root
     }
-}
+    }

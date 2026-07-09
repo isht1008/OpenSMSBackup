@@ -3,6 +3,7 @@ package io.github.isht1008.opensmsbackup.sms
 import android.content.Context
 import android.provider.Telephony
 import io.github.isht1008.opensmsbackup.contact.ContactRepository
+import io.github.isht1008.opensmsbackup.util.DateUtils
 
 class SmsRepository {
 
@@ -72,13 +73,16 @@ class SmsRepository {
                         contacts[address]
                     }
 
+                val smsDate = it.getLong(dateIndex)
+
                 smsList.add(
                     SmsMessage(
-                        id = it.getString(idIndex),
+                        id = it.getLong(idIndex),
                         address = address,
                         contactName = contactName,
                         body = it.getString(bodyIndex),
-                        date = it.getLong(dateIndex),
+                        date = smsDate,
+                        dateFormatted = DateUtils.formatDateIST(smsDate),
                         type = it.getInt(typeIndex)
                     )
                 )
