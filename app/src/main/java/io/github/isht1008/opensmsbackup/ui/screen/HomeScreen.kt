@@ -1,5 +1,6 @@
 package io.github.isht1008.opensmsbackup.ui.screen
 
+import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,10 +8,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -26,12 +23,9 @@ import io.github.isht1008.opensmsbackup.ui.component.StatusCard
 
 @Composable
 fun HomeScreen(
+    viewModel: HomeViewModel,
     onBackupClick: () -> Unit
 ) {
-
-    var status by remember {
-        mutableStateOf("Ready")
-    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -61,7 +55,7 @@ fun HomeScreen(
             PrimaryButton(
                 text = "Backup SMS",
                 onClick = {
-                    status = "Checking permissions..."
+                    viewModel.updateStatus("Checking permissions...")
                     onBackupClick()
                 }
             )
@@ -82,7 +76,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(40.dp))
 
             StatusCard(
-                status = status
+                status = viewModel.status
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -99,6 +93,7 @@ fun HomeScreen(
 fun HomeScreenPreview() {
     OpenSMSBackupTheme {
         HomeScreen(
+            viewModel = HomeViewModel(),
             onBackupClick = {}
         )
     }
