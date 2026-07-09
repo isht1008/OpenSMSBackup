@@ -1,18 +1,20 @@
 package io.github.isht1008.opensmsbackup.file
 
+import android.content.ContentValues
 import android.content.Context
 import android.os.Environment
+import android.provider.MediaStore
 import org.json.JSONObject
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import io.github.isht1008.opensmsbackup.model.BackupFileInfo
 
 class BackupFileWriter(
     private val context: Context
 ) {
 
-    fun write(json: JSONObject): File {
+    fun write(json: JSONObject): BackupFileInfo {
 
         val timestamp = SimpleDateFormat(
             "yyyy-MM-dd_HH-mm-ss",
@@ -22,19 +24,51 @@ class BackupFileWriter(
         val filename =
             "OpenSMSBackup_$timestamp.json"
 
-        val documentsDir = context.getExternalFilesDir(
-            Environment.DIRECTORY_DOCUMENTS
-        ) ?: throw IllegalStateException("Documents directory unavailable")
 
-        val file = File(
-            documentsDir,
-            filename
+        val contentValues = ContentValues().apply {
+            put(
+                MediaStore.Files.FileColumns.DISPLAY_NAME,
+                filename
+            )
+
+            put(
+                MediaStore.Files.FileColumns.MIME_TYPE,
+                "application/json"
+            )
+
+            put(
+                MediaStore.Files.FileColumns.RELATIVE_PATH,
+                Environment.DIRECTORY_DOCUMENTS +
+                        "/OpenSMSBackup"
+            )
+        }
+
+
+        val uri = context.contentResolver.insert(
+            MediaStore.Files.getContentUri("external"),
+            contentValues
         )
+            ?: throw IllegalStateException(
+                "Unable to create backup file"
+            )
 
-        file.writeText(
-            json.toString(2)
+
+        context.contentResolver.openOutputStream(uri)
+            ?.use { outputStream ->
+
+                outputStream.write(
+                    json.toString(2)
+                        .toByteArray()
+                )
+            }
+            ?: throw IllegalStateException(
+                "Unable to open backup stream"
+            )
+
+
+        return BackupFileInfo(
+            uri = uri.toString(),
+            filename = filename
         )
-
-        return file
     }
 }

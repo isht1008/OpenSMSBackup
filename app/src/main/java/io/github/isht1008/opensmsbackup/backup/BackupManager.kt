@@ -30,16 +30,20 @@ class BackupManager {
             totalConversations = conversations.size,
             conversations = conversations
         )
-        // Generate JSON (not saving yet)
+// Generate JSON backup
         val json = jsonBackupWriter.createJson(result)
 
-// Temporary verification
+// Save backup file
         val writer = BackupFileWriter(context)
 
         val file = writer.write(json)
 
         println(
-            "Backup saved: ${file.absolutePath}"
+            "Backup saved: ${file.uri}"
+        )
+
+        println(
+            "Filename: ${file.filename}"
         )
 
         return result
