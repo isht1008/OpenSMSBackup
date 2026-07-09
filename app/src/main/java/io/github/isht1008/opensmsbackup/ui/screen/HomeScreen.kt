@@ -20,12 +20,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.StatusCard
+import androidx.compose.ui.platform.LocalContext
+
+
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onBackupClick: () -> Unit
+    onBackupClick: () -> Unit,
+    onBackupHistoryClick: () -> Unit
 ) {
+    val context = LocalContext.current
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -62,6 +67,13 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             PrimaryButton(
+                text = "Backup History",
+                onClick = onBackupHistoryClick
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            PrimaryButton(
                 text = "Restore SMS",
                 onClick = { }
             )
@@ -82,7 +94,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Version 0.1.0"
+                text = "Version 0.2.0"
             )
         }
     }
@@ -94,7 +106,8 @@ fun HomeScreenPreview() {
     OpenSMSBackupTheme {
         HomeScreen(
             viewModel = HomeViewModel(),
-            onBackupClick = {}
+            onBackupClick = {},
+            onBackupHistoryClick = {}
         )
     }
 }

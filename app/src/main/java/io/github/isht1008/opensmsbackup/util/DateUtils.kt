@@ -17,4 +17,27 @@ object DateUtils {
 
         return formatter.format(Date(timestamp))
     }
+    fun formatIsoDate(
+        isoDate: String
+    ): String {
+
+        return try {
+
+            val instant = java.time.Instant.parse(isoDate)
+
+            val formatter =
+                java.time.format.DateTimeFormatter
+                    .ofPattern("dd MMM yyyy, hh:mm a")
+                    .withZone(
+                        java.time.ZoneId.systemDefault()
+                    )
+
+            formatter.format(instant)
+
+        } catch (e: Exception) {
+
+            isoDate
+
+        }
+    }
 }

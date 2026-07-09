@@ -9,10 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
-import io.github.isht1008.opensmsbackup.ui.screen.HomeScreen
 import io.github.isht1008.opensmsbackup.ui.theme.OpenSMSBackupTheme
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
-
+import io.github.isht1008.opensmsbackup.navigation.OpenSmsBackupNavHost
 class MainActivity : ComponentActivity() {
 
     private val homeViewModel: HomeViewModel by viewModels()
@@ -32,7 +31,7 @@ class MainActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.READ_CONTACTS
-            )  == PackageManager.PERMISSION_GRANTED
+            ) == PackageManager.PERMISSION_GRANTED
 
         if (contactsGranted) {
 
@@ -78,8 +77,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             OpenSMSBackupTheme {
 
-                HomeScreen(
-                    viewModel = homeViewModel,
+                OpenSmsBackupNavHost(
+                    homeViewModel = homeViewModel,
                     onBackupClick = {
 
                         val smsGranted =
@@ -118,7 +117,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
-
             }
         }
     }
