@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
 
             homeViewModel.updateStatus("Reading SMS...")
 
-            homeViewModel.testReadSms(
+            homeViewModel.startBackup(
                 context = this,
                 includeContactNames = true
             )
@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        homeViewModel.testReadSms(
+        homeViewModel.startBackup(
             context = this,
             includeContactNames = granted
         )
@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
 
                             homeViewModel.updateStatus("Reading SMS...")
 
-                            homeViewModel.testReadSms(
+                            homeViewModel.startBackup(
                                 context = this,
                                 includeContactNames = true
                             )

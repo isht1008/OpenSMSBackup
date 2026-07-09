@@ -1,54 +1,78 @@
 package io.github.isht1008.opensmsbackup.viewmodel
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import io.github.isht1008.opensmsbackup.sms.SmsRepository
+import io.github.isht1008.opensmsbackup.backup.BackupManager
 
 class HomeViewModel : ViewModel() {
 
     var status by mutableStateOf("Ready")
         private set
 
+    var isBackingUp by mutableStateOf(false)
+        private set
+
     fun updateStatus(newStatus: String) {
         status = newStatus
     }
 
-    fun readSmsCount(context: Context) {
-
-        updateStatus("Reading SMS...")
-
-        val smsRepository = SmsRepository()
-
-        val count = smsRepository.getSmsCount(context)
-
-        updateStatus("Messages found: $count")
-    }
-
-    fun testReadSms(
+    fun startBackup(
         context: Context,
         includeContactNames: Boolean
     ) {
-        try {
 
-            val smsRepository = SmsRepository()
+        if (isBackingUp) {
+            return
+        }
 
-            val messages = smsRepository.getSmsMessages(
-                context = context,
-                includeContactNames = includeContactNames
-            )
+        isBackingUp = true
 
-            updateStatus(
-                "Read ${messages.size} SMS\nFirst: ${messages.firstOrNull()?.body}"
-            )
+        updateStatus("Reading SMS...")
 
-        } catch (e: Exception) {
+        viewModelScope.launch {
 
-            updateStatus(
-                "ERROR:\n${e.javaClass.simpleName}\n${e.message}"
-            )
+            try {
+
+                val result = withContext(Dispatchers.IO) {
+
+                    val backupManager = BackupManager()
+
+                    backupManager.createBackup(
+                        context = context,
+                        includeContactNames = includeContactNames
+                    )
+
+                }
+
+                updateStatus(
+                    """
+Read ${result.totalMessages} SMS
+
+${result.totalConversations} Conversations
+
+First:
+${result.conversations.firstOrNull()?.messages?.firstOrNull()?.body}
+                """.trimIndent()
+                )
+
+            } catch (e: Exception) {
+
+                updateStatus(
+                    "ERROR\n${e.javaClass.simpleName}\n${e.message}"
+                )
+
+            } finally {
+
+                isBackingUp = false
+
+            }
         }
     }
 }

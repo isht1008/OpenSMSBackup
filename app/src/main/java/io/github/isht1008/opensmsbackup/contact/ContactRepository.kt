@@ -1,29 +1,21 @@
 package io.github.isht1008.opensmsbackup.contact
 
 import android.content.Context
-import android.net.Uri
 import android.provider.ContactsContract
 
 class ContactRepository {
 
-    fun getContactName(
-        context: Context,
-        phoneNumber: String?
-    ): String? {
+    fun loadContacts(
+        context: Context
+    ): Map<String, String> {
 
-        if (phoneNumber.isNullOrBlank()) {
-            return null
-        }
-
-        val lookupUri = Uri.withAppendedPath(
-            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-            Uri.encode(phoneNumber)
-        )
+        val contacts = mutableMapOf<String, String>()
 
         val cursor = context.contentResolver.query(
-            lookupUri,
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
             arrayOf(
-                ContactsContract.PhoneLookup.DISPLAY_NAME
+                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
             ),
             null,
             null,
@@ -32,15 +24,25 @@ class ContactRepository {
 
         cursor?.use {
 
-            if (it.moveToFirst()) {
-                return it.getString(
-                    it.getColumnIndexOrThrow(
-                        ContactsContract.PhoneLookup.DISPLAY_NAME
-                    )
-                )
+            val numberIndex = it.getColumnIndexOrThrow(
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+            )
+
+            val nameIndex = it.getColumnIndexOrThrow(
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+            )
+
+            while (it.moveToNext()) {
+
+                val number = it.getString(numberIndex)
+                val name = it.getString(nameIndex)
+
+                if (!number.isNullOrBlank()) {
+                    contacts[number] = name
+                }
             }
         }
 
-        return null
+        return contacts
     }
 }

@@ -1,13 +1,12 @@
 package io.github.isht1008.opensmsbackup.sms
 
-import io.github.isht1008.opensmsbackup.contact.ContactRepository
 import android.content.Context
 import android.provider.Telephony
+import io.github.isht1008.opensmsbackup.contact.ContactRepository
 
 class SmsRepository {
-    private val contactRepository = ContactRepository()
 
-    private val contactCache = mutableMapOf<String, String?>()
+    private val contactRepository = ContactRepository()
 
     fun getSmsCount(context: Context): Int {
 
@@ -26,13 +25,19 @@ class SmsRepository {
         return count
     }
 
-
     fun getSmsMessages(
         context: Context,
         includeContactNames: Boolean
     ): List<SmsMessage> {
 
         val smsList = mutableListOf<SmsMessage>()
+
+        val contacts =
+            if (includeContactNames) {
+                contactRepository.loadContacts(context)
+            } else {
+                emptyMap()
+            }
 
         val cursor = context.contentResolver.query(
             Telephony.Sms.CONTENT_URI,
@@ -50,30 +55,21 @@ class SmsRepository {
 
         cursor?.use {
 
-            val idIndex = it.getColumnIndex(Telephony.Sms._ID)
-            val addressIndex = it.getColumnIndex(Telephony.Sms.ADDRESS)
-            val bodyIndex = it.getColumnIndex(Telephony.Sms.BODY)
-            val dateIndex = it.getColumnIndex(Telephony.Sms.DATE)
-            val typeIndex = it.getColumnIndex(Telephony.Sms.TYPE)
+            val idIndex = it.getColumnIndexOrThrow(Telephony.Sms._ID)
+            val addressIndex = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+            val bodyIndex = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
+            val dateIndex = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
+            val typeIndex = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
 
+            while (it.moveToNext()) {
 
-            var count = 0
-
-            while (it.moveToNext() && count < 100) {
-
-                count++
                 val address = it.getString(addressIndex)
 
                 val contactName =
                     if (!includeContactNames || address.isNullOrBlank()) {
                         null
                     } else {
-                        contactCache.getOrPut(address) {
-                            contactRepository.getContactName(
-                                context,
-                                address
-                            )
-                        }
+                        contacts[address]
                     }
 
                 smsList.add(
