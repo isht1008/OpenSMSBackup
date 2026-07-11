@@ -2,6 +2,8 @@ package io.github.isht1008.opensmsbackup.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -21,6 +23,9 @@ import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.StatusCard
 import io.github.isht1008.opensmsbackup.ui.theme.OpenSMSBackupTheme
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 @Composable
 fun HomeScreen(
@@ -30,12 +35,17 @@ fun HomeScreen(
 ) {
 
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing),
         color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(
+                    rememberScrollState()
+                )
                 .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally

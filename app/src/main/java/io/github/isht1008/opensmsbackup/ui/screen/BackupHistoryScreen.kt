@@ -57,11 +57,7 @@ fun BackupHistoryScreen(
 
                     BackupHistoryCard(
                         backup = backup,
-                        onClick = {
-
-                            viewModel.selectBackup(backup)
-
-                        }
+                        onClick = { }
                     )
 
                 }
