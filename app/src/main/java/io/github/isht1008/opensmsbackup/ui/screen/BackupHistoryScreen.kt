@@ -53,9 +53,16 @@ fun BackupHistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
-                items(viewModel.backups) {
+                items(viewModel.backups) { backup ->
 
-                    BackupHistoryCard(it)
+                    BackupHistoryCard(
+                        backup = backup,
+                        onClick = {
+
+                            viewModel.selectBackup(backup)
+
+                        }
+                    )
 
                 }
 

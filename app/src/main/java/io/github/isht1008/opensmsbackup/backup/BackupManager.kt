@@ -30,7 +30,9 @@ class BackupManager {
         val result = BackupResult(
             totalMessages = messages.size,
             totalConversations = conversations.size,
-            conversations = conversations
+            conversations = conversations,
+            backupFileName = "",
+            backupUri = ""
         )
 
         // Generate JSON backup
@@ -44,6 +46,9 @@ class BackupManager {
         println("Backup saved: ${file.uri}")
         println("Filename: ${file.filename}")
 
-        return result
+        return result.copy(
+            backupFileName = file.filename,
+            backupUri = file.uri
+        )
     }
 }

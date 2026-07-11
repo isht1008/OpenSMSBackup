@@ -1,7 +1,9 @@
 package io.github.isht1008.opensmsbackup.ui.component
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -22,8 +24,7 @@ fun BackupHistoryCard(
 ) {
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
         elevation = CardDefaults.cardElevation(
             defaultElevation = 4.dp
@@ -40,24 +41,30 @@ fun BackupHistoryCard(
                 fontWeight = FontWeight.Bold
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
             Text(
-                text = DateUtils.formatIsoDate(
-                    backup.createdAt
-                )
+                text = "📅 ${DateUtils.formatIsoDate(backup.createdAt)}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "💬 ${String.format("%,d", backup.messageCount)} SMS",
+                style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "${backup.messageCount} SMS"
+                text = "👥 ${String.format("%,d", backup.conversationCount)} Conversations",
+                style = MaterialTheme.typography.bodyMedium
             )
 
-            Text(
-                text = "${backup.conversationCount} Conversations"
-            )
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = FileSizeUtils.format(
-                    backup.fileSizeBytes
-                )
+                text = "💾 ${FileSizeUtils.format(backup.fileSizeBytes)}",
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }

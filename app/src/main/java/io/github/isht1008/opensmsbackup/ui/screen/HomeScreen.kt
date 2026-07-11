@@ -106,7 +106,12 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(40.dp))
 
             StatusCard(
-                status = viewModel.status
+                status = viewModel.status,
+                progress = if (viewModel.isBackingUp) {
+                    viewModel.progress
+                } else {
+                    null
+                }
             )
 
             Spacer(modifier = Modifier.height(24.dp))

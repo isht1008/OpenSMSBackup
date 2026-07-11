@@ -20,6 +20,9 @@ class HomeViewModel : ViewModel() {
     var isBackingUp by mutableStateOf(false)
         private set
 
+    var progress by mutableStateOf(0f)
+        private set
+
     fun updateStatus(newStatus: String) {
         status = newStatus
     }
@@ -35,6 +38,8 @@ class HomeViewModel : ViewModel() {
 
         isBackingUp = true
 
+        progress = 0f
+
         updateStatus("Preparing backup...")
 
         viewModelScope.launch {
@@ -48,31 +53,43 @@ class HomeViewModel : ViewModel() {
                         includeContactNames = includeContactNames,
                         onProgress = { current, total ->
 
+                            progress = current.toFloat() / total
+
+                            val percent =
+                                (progress * 100).toInt()
+
                             updateStatus(
                                 """
 Reading SMS...
 
-$current / $total
-                                """.trimIndent()
+${String.format("%,d", current)} of ${String.format("%,d", total)}
+
+$percent%
+        """.trimIndent()
                             )
                         }
                     )
 
                 }
 
+                progress = 1f
+
                 updateStatus(
                     """
 ✅ Backup completed
 
-Messages:
-${result.totalMessages}
+📨 Messages
+${String.format("%,d", result.totalMessages)}
 
-Conversations:
-${result.totalConversations}
+👥 Conversations
+${String.format("%,d", result.totalConversations)}
 
-First:
-${result.conversations.firstOrNull()?.messages?.firstOrNull()?.body}
-                    """.trimIndent()
+📄 Backup File
+${result.backupFileName}
+
+📁 Location
+Documents/OpenSMSBackup
+    """.trimIndent()
                 )
 
             } catch (e: Exception) {
