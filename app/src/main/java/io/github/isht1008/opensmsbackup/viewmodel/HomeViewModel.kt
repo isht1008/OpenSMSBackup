@@ -35,7 +35,7 @@ class HomeViewModel : ViewModel() {
 
         isBackingUp = true
 
-        updateStatus("Reading SMS...")
+        updateStatus("Preparing backup...")
 
         viewModelScope.launch {
 
@@ -45,16 +45,30 @@ class HomeViewModel : ViewModel() {
 
                     BackupManager().createBackup(
                         context = context,
-                        includeContactNames = includeContactNames
+                        includeContactNames = includeContactNames,
+                        onProgress = { current, total ->
+
+                            updateStatus(
+                                """
+Reading SMS...
+
+$current / $total
+                                """.trimIndent()
+                            )
+                        }
                     )
 
                 }
 
                 updateStatus(
                     """
-Read ${result.totalMessages} SMS
+✅ Backup completed
 
-${result.totalConversations} Conversations
+Messages:
+${result.totalMessages}
+
+Conversations:
+${result.totalConversations}
 
 First:
 ${result.conversations.firstOrNull()?.messages?.firstOrNull()?.body}
@@ -64,7 +78,13 @@ ${result.conversations.firstOrNull()?.messages?.firstOrNull()?.body}
             } catch (e: Exception) {
 
                 updateStatus(
-                    "ERROR\n${e.javaClass.simpleName}\n${e.message}"
+                    """
+ERROR
+
+${e.javaClass.simpleName}
+
+${e.message}
+                    """.trimIndent()
                 )
 
             } finally {

@@ -2,9 +2,9 @@ package io.github.isht1008.opensmsbackup.backup
 
 import android.content.Context
 import io.github.isht1008.opensmsbackup.conversation.ConversationBuilder
-import io.github.isht1008.opensmsbackup.sms.SmsRepository
-import io.github.isht1008.opensmsbackup.json.JsonBackupWriter
 import io.github.isht1008.opensmsbackup.file.BackupFileWriter
+import io.github.isht1008.opensmsbackup.json.JsonBackupWriter
+import io.github.isht1008.opensmsbackup.sms.SmsRepository
 
 class BackupManager {
 
@@ -14,12 +14,14 @@ class BackupManager {
 
     fun createBackup(
         context: Context,
-        includeContactNames: Boolean
+        includeContactNames: Boolean,
+        onProgress: ((current: Int, total: Int) -> Unit)? = null
     ): BackupResult {
 
         val messages = smsRepository.getSmsMessages(
             context = context,
-            includeContactNames = includeContactNames
+            includeContactNames = includeContactNames,
+            onProgress = onProgress
         )
 
         val conversations =
@@ -30,23 +32,18 @@ class BackupManager {
             totalConversations = conversations.size,
             conversations = conversations
         )
-// Generate JSON backup
+
+        // Generate JSON backup
         val json = jsonBackupWriter.createJson(result)
 
-// Save backup file
+        // Save backup file
         val writer = BackupFileWriter(context)
 
         val file = writer.write(json)
 
-        println(
-            "Backup saved: ${file.uri}"
-        )
-
-        println(
-            "Filename: ${file.filename}"
-        )
+        println("Backup saved: ${file.uri}")
+        println("Filename: ${file.filename}")
 
         return result
-
     }
 }

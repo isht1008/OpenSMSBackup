@@ -28,10 +28,13 @@ class SmsRepository {
 
     fun getSmsMessages(
         context: Context,
-        includeContactNames: Boolean
+        includeContactNames: Boolean,
+        onProgress: ((current: Int, total: Int) -> Unit)? = null
     ): List<SmsMessage> {
 
         val smsList = mutableListOf<SmsMessage>()
+
+        val totalMessages = getSmsCount(context)
 
         val contacts =
             if (includeContactNames) {
@@ -62,7 +65,15 @@ class SmsRepository {
             val dateIndex = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
             val typeIndex = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
 
+            var current = 0
+
             while (it.moveToNext()) {
+
+                current++
+
+                if (current % 250 == 0 || current == totalMessages) {
+                    onProgress?.invoke(current, totalMessages)
+                }
 
                 val address = it.getString(addressIndex)
 

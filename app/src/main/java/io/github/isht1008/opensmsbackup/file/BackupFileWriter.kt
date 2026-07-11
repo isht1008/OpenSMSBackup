@@ -24,6 +24,7 @@ class BackupFileWriter(
         val filename =
             "OpenSMSBackup_$timestamp.json"
 
+        val jsonText = json.toString(2)
 
         val contentValues = ContentValues().apply {
             put(
@@ -43,7 +44,6 @@ class BackupFileWriter(
             )
         }
 
-
         val uri = context.contentResolver.insert(
             MediaStore.Files.getContentUri("external"),
             contentValues
@@ -52,23 +52,22 @@ class BackupFileWriter(
                 "Unable to create backup file"
             )
 
-
         context.contentResolver.openOutputStream(uri)
             ?.use { outputStream ->
 
                 outputStream.write(
-                    json.toString(2)
-                        .toByteArray()
+                    jsonText.toByteArray(Charsets.UTF_8)
                 )
+
             }
             ?: throw IllegalStateException(
                 "Unable to open backup stream"
             )
 
-
         return BackupFileInfo(
             uri = uri.toString(),
-            filename = filename
+            filename = filename,
+            fileSizeBytes = jsonText.toByteArray(Charsets.UTF_8).size.toLong()
         )
     }
 }
