@@ -8,29 +8,41 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import io.github.isht1008.opensmsbackup.gmail.auth.GoogleSignInManager
+import io.github.isht1008.opensmsbackup.navigation.OpenSmsBackupNavHost
 import io.github.isht1008.opensmsbackup.ui.theme.OpenSMSBackupTheme
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
-import io.github.isht1008.opensmsbackup.navigation.OpenSmsBackupNavHost
+import kotlinx.coroutines.launch
+
+
 class MainActivity : ComponentActivity() {
 
     private val homeViewModel: HomeViewModel by viewModels()
+
+    private lateinit var googleSignInManager: GoogleSignInManager
+
 
     private val requestSmsPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
 
         if (!granted) {
+
             homeViewModel.updateStatus(
                 "SMS permission is required to create a backup."
             )
+
             return@registerForActivityResult
         }
+
 
         val contactsGranted =
             ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.READ_CONTACTS
             ) == PackageManager.PERMISSION_GRANTED
+
 
         if (contactsGranted) {
 
@@ -50,17 +62,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     private val requestContactsPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
 
+
         if (granted) {
-            homeViewModel.updateStatus("Reading SMS...")
+
+            homeViewModel.updateStatus(
+                "Reading SMS..."
+            )
+
         } else {
+
             homeViewModel.updateStatus(
                 "Reading SMS...\n(Contact names unavailable)"
             )
         }
+
 
         homeViewModel.startBackup(
             context = this,
@@ -68,14 +88,23 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+
+        googleSignInManager =
+            GoogleSignInManager(this)
+
+
         setContent {
+
             OpenSMSBackupTheme {
 
                 OpenSmsBackupNavHost(
+
                     homeViewModel = homeViewModel,
+
                     onBackupClick = {
 
                         val smsGranted =
@@ -84,33 +113,78 @@ class MainActivity : ComponentActivity() {
                                 Manifest.permission.READ_SMS
                             ) == PackageManager.PERMISSION_GRANTED
 
+
                         val contactsGranted =
                             ContextCompat.checkSelfPermission(
                                 this,
                                 Manifest.permission.READ_CONTACTS
                             ) == PackageManager.PERMISSION_GRANTED
 
+
+
                         if (!smsGranted) {
+
 
                             requestSmsPermission.launch(
                                 Manifest.permission.READ_SMS
                             )
 
+
                         } else if (!contactsGranted) {
+
 
                             requestContactsPermission.launch(
                                 Manifest.permission.READ_CONTACTS
                             )
 
+
                         } else {
 
-                            homeViewModel.updateStatus("Reading SMS...")
+
+                            homeViewModel.updateStatus(
+                                "Reading SMS..."
+                            )
+
 
                             homeViewModel.startBackup(
                                 context = this,
                                 includeContactNames = true
                             )
+                        }
+                    },
 
+
+                    onGoogleSignInClick = {
+
+
+                        homeViewModel.updateStatus(
+                            "Opening Google Sign-In..."
+                        )
+
+
+                        lifecycleScope.launch {
+
+
+                            val result =
+                                googleSignInManager.signIn()
+
+
+                            result.onSuccess {
+
+
+                                homeViewModel.updateStatus(
+                                    "Google Sign-In successful."
+                                )
+
+
+                            }.onFailure { error ->
+
+
+                                homeViewModel.updateStatus(
+                                    "Google Sign-In failed:\n${error.javaClass.name}\n${error.message}"
+                                )
+
+                            }
                         }
                     }
                 )

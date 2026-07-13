@@ -32,7 +32,8 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onBackupClick: () -> Unit,
     onBackupHistoryClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onGoogleSignInClick: () -> Unit
 ) {
 
     Surface(
@@ -84,6 +85,13 @@ fun HomeScreen(
             PrimaryButton(
                 text = "Backup History",
                 onClick = onBackupHistoryClick
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            PrimaryButton(
+                text = "Sign in with Google",
+                onClick = onGoogleSignInClick
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -142,7 +150,8 @@ fun HomeScreenPreview() {
             viewModel = HomeViewModel(),
             onBackupClick = {},
             onBackupHistoryClick = {},
-            onSettingsClick = {}
+            onSettingsClick = {},
+            onGoogleSignInClick = {}
         )
 
     }

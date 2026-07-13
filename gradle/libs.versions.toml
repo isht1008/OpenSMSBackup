@@ -15,6 +15,11 @@ lifecycleViewModel = "2.9.2"
 credentials = "1.6.0"
 googleId = "1.2.0"
 playServicesAuth = "21.4.0"
+googleApiClient = "2.7.2"
+googleHttpClientAndroid = "1.45.0"
+googleApiServicesGmail = "v1-rev20250630-2.0.0"
+datastore = "1.1.7"
+googleAuth = "21.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -39,6 +44,11 @@ androidx-credentials-play-services-auth = { group = "androidx.credentials", name
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleId" }
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+google-api-client-android = { group = "com.google.api-client", name = "google-api-client-android", version.ref = "googleApiClient" }
+google-http-client-android = { group = "com.google.http-client", name = "google-http-client-android", version.ref = "googleHttpClientAndroid" }
+google-api-services-gmail = { group = "com.google.apis", name = "google-api-services-gmail", version.ref = "googleApiServicesGmail" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+google-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "googleAuth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
