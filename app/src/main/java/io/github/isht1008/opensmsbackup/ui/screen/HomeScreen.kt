@@ -2,12 +2,15 @@ package io.github.isht1008.opensmsbackup.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,15 +26,13 @@ import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.StatusCard
 import io.github.isht1008.opensmsbackup.ui.theme.OpenSMSBackupTheme
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
     onBackupClick: () -> Unit,
-    onBackupHistoryClick: () -> Unit
+    onBackupHistoryClick: () -> Unit,
+    onSettingsClick: () -> Unit
 ) {
 
     Surface(
@@ -40,12 +41,11 @@ fun HomeScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing),
         color = MaterialTheme.colorScheme.background
     ) {
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(
-                    rememberScrollState()
-                )
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -97,7 +97,7 @@ fun HomeScreen(
 
             PrimaryButton(
                 text = "Settings",
-                onClick = { }
+                onClick = onSettingsClick
             )
 
             if (viewModel.isBackingUp) {
@@ -117,11 +117,10 @@ fun HomeScreen(
 
             StatusCard(
                 status = viewModel.status,
-                progress = if (viewModel.isBackingUp) {
+                progress = if (viewModel.isBackingUp)
                     viewModel.progress
-                } else {
+                else
                     null
-                }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -136,11 +135,16 @@ fun HomeScreen(
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
+
     OpenSMSBackupTheme {
+
         HomeScreen(
             viewModel = HomeViewModel(),
             onBackupClick = {},
-            onBackupHistoryClick = {}
+            onBackupHistoryClick = {},
+            onSettingsClick = {}
         )
+
     }
+
 }
