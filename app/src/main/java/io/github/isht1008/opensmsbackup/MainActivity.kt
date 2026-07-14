@@ -9,18 +9,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import io.github.isht1008.opensmsbackup.gmail.auth.GoogleSignInManager
 import io.github.isht1008.opensmsbackup.navigation.OpenSmsBackupNavHost
 import io.github.isht1008.opensmsbackup.ui.theme.OpenSMSBackupTheme
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 import kotlinx.coroutines.launch
+import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 
 
 class MainActivity : ComponentActivity() {
 
     private val homeViewModel: HomeViewModel by viewModels()
-
-    private lateinit var googleSignInManager: GoogleSignInManager
 
 
     private val requestSmsPermission = registerForActivityResult(
@@ -92,10 +90,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-
-        googleSignInManager =
-            GoogleSignInManager(this)
-
+        val gmailAccountCoordinator =
+            GmailAccountCoordinator(this)
 
         setContent {
 
@@ -156,32 +152,25 @@ class MainActivity : ComponentActivity() {
 
                     onGoogleSignInClick = {
 
-
                         homeViewModel.updateStatus(
-                            "Opening Google Sign-In..."
+                            "Connecting Gmail..."
                         )
-
 
                         lifecycleScope.launch {
 
-
                             val result =
-                                googleSignInManager.signIn()
+                                gmailAccountCoordinator.connectAccount()
 
-
-                            result.onSuccess {
-
+                            result.onSuccess { email ->
 
                                 homeViewModel.updateStatus(
-                                    "Google Sign-In successful."
+                                    "Connected to Gmail:\n$email"
                                 )
-
 
                             }.onFailure { error ->
 
-
                                 homeViewModel.updateStatus(
-                                    "Google Sign-In failed:\n${error.javaClass.name}\n${error.message}"
+                                    "Connection failed:\n${error.message}"
                                 )
 
                             }

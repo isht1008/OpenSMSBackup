@@ -181,6 +181,9 @@ fun SettingsScreen(
                 viewModel.removeAccount()
 
             },
+            onRevokeAccess = {
+                // TODO: Implement Google OAuth revocation
+            },
 
             onDismiss = {
 
