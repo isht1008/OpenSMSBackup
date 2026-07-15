@@ -1,97 +1,85 @@
 package io.github.isht1008.opensmsbackup
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import io.github.isht1008.opensmsbackup.navigation.OpenSmsBackupNavHost
 import io.github.isht1008.opensmsbackup.ui.theme.OpenSMSBackupTheme
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
-import kotlinx.coroutines.launch
-import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
-
 
 class MainActivity : ComponentActivity() {
 
     private val homeViewModel: HomeViewModel by viewModels()
 
 
-    private val requestSmsPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-
-        if (!granted) {
+    // SMS Permission
+    private val requestSmsPermission =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
 
             homeViewModel.updateStatus(
-                "SMS permission is required to create a backup."
+                if (granted) {
+                    "SMS permission granted."
+                } else {
+                    "SMS permission denied."
+                }
             )
 
-            return@registerForActivityResult
         }
 
 
-        val contactsGranted =
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_CONTACTS
-            ) == PackageManager.PERMISSION_GRANTED
+    // Contacts Permission
+    private val requestContactsPermission =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
 
-
-        if (contactsGranted) {
-
-            homeViewModel.updateStatus("Reading SMS...")
-
-            homeViewModel.startBackup(
-                context = this,
-                includeContactNames = true
-            )
-
-        } else {
-
-            requestContactsPermission.launch(
-                Manifest.permission.READ_CONTACTS
+            homeViewModel.updateStatus(
+                if (granted) {
+                    "Contacts permission granted."
+                } else {
+                    "Contacts permission denied."
+                }
             )
 
         }
-    }
 
 
-    private val requestContactsPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
+    // Gmail OAuth Consent
+    // Will be connected when GmailAuthorizationManager flow is wired
+    private val gmailConsentLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
 
+            if (result.resultCode == RESULT_OK) {
 
-        if (granted) {
+                homeViewModel.updateStatus(
+                    "Gmail permission granted."
+                )
 
-            homeViewModel.updateStatus(
-                "Reading SMS..."
-            )
+            } else {
 
-        } else {
+                homeViewModel.updateStatus(
+                    "Gmail permission denied."
+                )
 
-            homeViewModel.updateStatus(
-                "Reading SMS...\n(Contact names unavailable)"
-            )
+            }
+
         }
-
-
-        homeViewModel.startBackup(
-            context = this,
-            includeContactNames = granted
-        )
-    }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val gmailAccountCoordinator =
-            GmailAccountCoordinator(this)
+        homeViewModel.onGmailConsentRequired = { intent ->
+
+            gmailConsentLauncher.launch(intent)
+
+        }
 
         setContent {
 
@@ -101,83 +89,31 @@ class MainActivity : ComponentActivity() {
 
                     homeViewModel = homeViewModel,
 
+
                     onBackupClick = {
 
-                        val smsGranted =
-                            ContextCompat.checkSelfPermission(
-                                this,
-                                Manifest.permission.READ_SMS
-                            ) == PackageManager.PERMISSION_GRANTED
+                        homeViewModel.startBackup(
+                            context = this@MainActivity,
+                            includeContactNames = true
+                        )
 
-
-                        val contactsGranted =
-                            ContextCompat.checkSelfPermission(
-                                this,
-                                Manifest.permission.READ_CONTACTS
-                            ) == PackageManager.PERMISSION_GRANTED
-
-
-
-                        if (!smsGranted) {
-
-
-                            requestSmsPermission.launch(
-                                Manifest.permission.READ_SMS
-                            )
-
-
-                        } else if (!contactsGranted) {
-
-
-                            requestContactsPermission.launch(
-                                Manifest.permission.READ_CONTACTS
-                            )
-
-
-                        } else {
-
-
-                            homeViewModel.updateStatus(
-                                "Reading SMS..."
-                            )
-
-
-                            homeViewModel.startBackup(
-                                context = this,
-                                includeContactNames = true
-                            )
-                        }
                     },
 
 
                     onGoogleSignInClick = {
 
-                        homeViewModel.updateStatus(
-                            "Connecting Gmail..."
+                        homeViewModel.signInGoogle(
+                            context = this@MainActivity
                         )
 
-                        lifecycleScope.launch {
-
-                            val result =
-                                gmailAccountCoordinator.connectAccount()
-
-                            result.onSuccess { email ->
-
-                                homeViewModel.updateStatus(
-                                    "Connected to Gmail:\n$email"
-                                )
-
-                            }.onFailure { error ->
-
-                                homeViewModel.updateStatus(
-                                    "Connection failed:\n${error.message}"
-                                )
-
-                            }
-                        }
                     }
+
                 )
+
             }
+
         }
+
     }
+
 }

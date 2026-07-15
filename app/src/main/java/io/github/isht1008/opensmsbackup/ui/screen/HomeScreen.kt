@@ -26,6 +26,7 @@ import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.StatusCard
 import io.github.isht1008.opensmsbackup.ui.theme.OpenSMSBackupTheme
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun HomeScreen(
@@ -35,6 +36,8 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onGoogleSignInClick: () -> Unit
 ) {
+
+    val context = LocalContext.current
 
     Surface(
         modifier = Modifier
@@ -92,6 +95,15 @@ fun HomeScreen(
             PrimaryButton(
                 text = "Sign in with Google",
                 onClick = onGoogleSignInClick
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            PrimaryButton(
+                text = "Test Gmail API",
+                onClick = {
+                    viewModel.testGmailApi(context)
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))

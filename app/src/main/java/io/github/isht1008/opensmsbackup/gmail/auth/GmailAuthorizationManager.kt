@@ -13,8 +13,7 @@ class GmailAuthorizationManager(
     companion object {
 
         const val GMAIL_SCOPE =
-            "https://www.googleapis.com/auth/gmail.modify"
-
+            "https://www.googleapis.com/auth/gmail.readonly"
     }
 
     private val authorizationClient =
