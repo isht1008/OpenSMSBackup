@@ -143,47 +143,6 @@ class MultiAccountRepository(
             )
     }
 
-    suspend fun createOrReconnectAndSelect(
-        accountEmail: String,
-        providerAccountId: String? = null,
-        displayName: String? = null,
-        photoUrl: String? = null
-    ): AccountProfileEntity {
-        val profile =
-            createOrReconnectProfile(
-                accountEmail = accountEmail,
-                providerAccountId =
-                    providerAccountId,
-                displayName = displayName,
-                photoUrl = photoUrl
-            )
-
-        selectProfile(
-            profile.profileId
-        )
-
-        return profile
-    }
-
-    suspend fun disconnectSelectedProfile() {
-        val selectedProfileId =
-            selectedProfileStore
-                .getSelectedProfileId()
-
-        if (selectedProfileId != null) {
-            accountDao.updateConnectionState(
-                profileId = selectedProfileId,
-                connectionState =
-                    AccountProfileEntity
-                        .CONNECTION_STATE_DISCONNECTED,
-                updatedTime =
-                    System.currentTimeMillis()
-            )
-        }
-
-        selectedProfileStore.clearSelection()
-    }
-
     suspend fun disconnectProfile(
         profileId: String
     ) {

@@ -23,20 +23,6 @@ class GmailApiClient(
         )
     }
 
-    fun createService(
-        email: String
-    ): Gmail {
-
-        return createService(
-            AccountProfileEntity(
-                profileId =
-                    "compatibility:$email",
-                accountEmail = email
-            )
-        )
-
-    }
-
     suspend fun listLabels(
         profile: AccountProfileEntity
     ): Result<ListLabelsResponse> {
@@ -62,19 +48,6 @@ class GmailApiClient(
 
         }
 
-    }
-
-    suspend fun listLabels(
-        email: String
-    ): Result<ListLabelsResponse> {
-
-        return listLabels(
-            AccountProfileEntity(
-                profileId =
-                    "compatibility:$email",
-                accountEmail = email
-            )
-        )
     }
 
 }

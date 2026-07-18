@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
@@ -45,10 +46,15 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onBackupClick: () -> Unit,
     onBackupHistoryClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    onGoogleSignInClick: () -> Unit
+    onSettingsClick: () -> Unit
 ) {
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshAccountStatus(
+            context
+        )
+    }
 
     val backupInProgress =
         viewModel.isBackingUp ||
@@ -226,19 +232,6 @@ fun HomeScreen(
             )
 
             PrimaryButton(
-                text = "Sign in with Google",
-                onClick = {
-                    if (!backupInProgress) {
-                        onGoogleSignInClick()
-                    }
-                }
-            )
-
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
-
-            PrimaryButton(
                 text = "Test Gmail API",
                 onClick = {
                     if (!backupInProgress) {
@@ -321,7 +314,12 @@ fun HomeScreen(
             )
 
             StatusCard(
-                status = viewModel.status,
+                status =
+                    if (viewModel.status == "Ready") {
+                        viewModel.accountStatus
+                    } else {
+                        "${viewModel.accountStatus}\n\n${viewModel.status}"
+                    },
                 progress =
                     when {
                         viewModel.isBackingUp ->

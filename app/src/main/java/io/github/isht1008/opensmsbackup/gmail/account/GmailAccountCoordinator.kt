@@ -149,16 +149,4 @@ class GmailAccountCoordinator(
     }
 
 
-    suspend fun removeAccount() {
-
-        accountManager.clearAccount()
-
-    }
-
-
-    suspend fun getSavedAccount(): String? {
-
-        return accountManager.getAccount()
-
-    }
 }

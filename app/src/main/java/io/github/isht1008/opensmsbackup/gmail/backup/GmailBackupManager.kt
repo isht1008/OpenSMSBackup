@@ -26,36 +26,6 @@ class GmailBackupManager {
 
     suspend fun backup(
         context: Context,
-        accountEmail: String,
-        includeContactNames: Boolean,
-        maxConversations: Int? = null,
-        onProgress: (
-            current: Int,
-            total: Int,
-            uploaded: Int,
-            skipped: Int,
-            failed: Int
-        ) -> Unit
-    ): Result<GmailBackupSummary> {
-
-        return backup(
-            context = context,
-            accountProfile =
-                AccountProfileEntity(
-                    profileId =
-                        "compatibility:$accountEmail",
-                    accountEmail = accountEmail
-                ),
-            includeContactNames =
-                includeContactNames,
-            maxConversations =
-                maxConversations,
-            onProgress = onProgress
-        )
-    }
-
-    suspend fun backup(
-        context: Context,
         accountProfile: AccountProfileEntity,
         includeContactNames: Boolean,
         maxConversations: Int? = null,

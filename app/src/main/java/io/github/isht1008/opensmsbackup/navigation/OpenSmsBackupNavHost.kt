@@ -14,8 +14,7 @@ import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 @Composable
 fun OpenSmsBackupNavHost(
     homeViewModel: HomeViewModel,
-    onBackupClick: () -> Unit,
-    onGoogleSignInClick: () -> Unit
+    onBackupClick: () -> Unit
 ) {
 
     val navController = rememberNavController()
@@ -42,9 +41,7 @@ fun OpenSmsBackupNavHost(
                     navController.navigate(
                         Screen.Settings.route
                     )
-                },
-
-                onGoogleSignInClick = onGoogleSignInClick
+                }
             )
         }
 

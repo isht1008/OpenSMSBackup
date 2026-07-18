@@ -10,9 +10,10 @@ import androidx.lifecycle.viewModelScope
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import io.github.isht1008.opensmsbackup.backup.BackupHistoryRepository
 import io.github.isht1008.opensmsbackup.backup.BackupManager
+import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
+import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
-import io.github.isht1008.opensmsbackup.gmail.auth.GoogleSignInManager
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,6 +22,12 @@ import kotlinx.coroutines.withContext
 class HomeViewModel : ViewModel() {
 
     var status by mutableStateOf("Ready")
+        private set
+
+    var accountStatus by
+        mutableStateOf(
+            "No Gmail account configured."
+        )
         private set
 
     var isBackingUp by mutableStateOf(false)
@@ -43,6 +50,18 @@ class HomeViewModel : ViewModel() {
         status = newStatus
     }
 
+    fun refreshAccountStatus(
+        context: Context
+    ) {
+        viewModelScope.launch {
+            val profile =
+                GmailAccountManager(context)
+                    .getSelectedAccountProfile()
+
+            updateAccountStatus(profile)
+        }
+    }
+
     fun startBackup(
         context: Context,
         includeContactNames: Boolean
@@ -59,6 +78,15 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
 
             try {
+                val accountProfile =
+                    resolveSelectedProfile(
+                        context
+                    ) ?: return@launch
+
+                updateAccountStatus(
+                    accountProfile
+                )
+
                 val result =
                     withContext(Dispatchers.IO) {
                         BackupManager().createBackup(
@@ -183,48 +211,6 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    fun signInGoogle(
-        context: Context
-    ) {
-
-        if (isGmailBackingUp) {
-            return
-        }
-
-        viewModelScope.launch {
-            updateStatus("Signing in with Google...")
-
-            val result =
-                GoogleSignInManager(context)
-                    .signIn()
-
-            result.onSuccess { email ->
-                withContext(Dispatchers.IO) {
-                    GmailAccountManager(context)
-                        .saveAccount(email)
-                }
-
-                updateStatus(
-                    """
-                    Google account connected
-
-                    $email
-                    """.trimIndent()
-                )
-            }
-
-            result.onFailure { error ->
-                updateStatus(
-                    """
-                    Google Sign In failed
-
-                    ${error.message ?: "Unknown error"}
-                    """.trimIndent()
-                )
-            }
-        }
-    }
-
     fun testGmailApi(
         context: Context
     ) {
@@ -238,15 +224,9 @@ class HomeViewModel : ViewModel() {
 
             try {
                 val accountProfile =
-                    GmailAccountManager(context)
-                        .getSelectedAccountProfile()
-
-                if (accountProfile == null) {
-                    updateStatus(
-                        "No Gmail account connected."
-                    )
-                    return@launch
-                }
+                    resolveSelectedProfile(
+                        context
+                    ) ?: return@launch
 
                 val result =
                     GmailApiClient(context)
@@ -303,19 +283,9 @@ class HomeViewModel : ViewModel() {
                 )
 
                 val accountProfile =
-                    GmailAccountManager(context)
-                        .getSelectedAccountProfile()
-
-                if (accountProfile == null) {
-                    updateStatus(
-                        """
-                        No Gmail account connected.
-
-                        Tap Sign in with Google first.
-                        """.trimIndent()
-                    )
-                    return@launch
-                }
+                    resolveSelectedProfile(
+                        context
+                    ) ?: return@launch
 
                 val result =
                     GmailBackupManager().backup(
@@ -497,6 +467,94 @@ class HomeViewModel : ViewModel() {
             ${error.message ?: "Unknown error"}
             """.trimIndent()
         )
+    }
+
+    private suspend fun resolveSelectedProfile(
+        context: Context
+    ): AccountProfileEntity? {
+        val profile =
+            GmailAccountManager(context)
+                .getSelectedAccountProfile()
+
+        if (profile == null) {
+            accountStatus =
+                "No Gmail account configured."
+
+            updateStatus(
+                "No Gmail account selected. Open Settings to add or select an account."
+            )
+
+            return null
+        }
+
+        updateAccountStatus(profile)
+
+        if (
+            profile.connectionState ==
+            AccountProfileEntity
+                .CONNECTION_STATE_AUTHORIZATION_REQUIRED
+        ) {
+            updateStatus(
+                "Re-authorizing selected Gmail account..."
+            )
+
+            val authorizedProfile =
+                GmailAccountCoordinator(context)
+                    .authorizeAccount(profile)
+                    .getOrElse {
+                        updateAccountStatus(
+                            profile.copy(
+                                connectionState =
+                                    AccountProfileEntity
+                                        .CONNECTION_STATE_AUTHORIZATION_REQUIRED
+                            )
+                        )
+
+                        updateStatus(
+                            "Authorization is required. Open Settings to re-authorize this account."
+                        )
+
+                        return null
+                    }
+
+            updateAccountStatus(
+                authorizedProfile
+            )
+
+            return authorizedProfile
+        }
+
+        if (
+            profile.connectionState !=
+            AccountProfileEntity
+                .CONNECTION_STATE_CONNECTED
+        ) {
+            updateStatus(
+                "No Gmail account selected. Open Settings to add or select an account."
+            )
+
+            return null
+        }
+
+        return profile
+    }
+
+    private fun updateAccountStatus(
+        profile: AccountProfileEntity?
+    ) {
+        accountStatus =
+            when (profile?.connectionState) {
+                AccountProfileEntity
+                    .CONNECTION_STATE_CONNECTED ->
+                    "Connected: ${profile.accountEmail}"
+
+                AccountProfileEntity
+                    .CONNECTION_STATE_AUTHORIZATION_REQUIRED ->
+                    "Authorization required for ${profile.accountEmail}"
+
+                else ->
+                    "No Gmail account configured."
+            }
     }
 
     private fun findRecoverableAuthError(

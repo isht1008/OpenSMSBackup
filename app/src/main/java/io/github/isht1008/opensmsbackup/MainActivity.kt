@@ -45,11 +45,6 @@ class MainActivity : ComponentActivity() {
                             context = this@MainActivity,
                             includeContactNames = true
                         )
-                    },
-                    onGoogleSignInClick = {
-                        homeViewModel.signInGoogle(
-                            context = this@MainActivity
-                        )
                     }
                 )
             }

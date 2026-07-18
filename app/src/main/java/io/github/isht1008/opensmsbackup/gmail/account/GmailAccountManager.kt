@@ -15,25 +15,6 @@ class GmailAccountManager(
             context.applicationContext
         )
 
-    suspend fun saveAccount(
-        email: String
-    ) {
-
-        saveAccountProfile(email)
-    }
-
-
-    suspend fun saveAccountProfile(
-        email: String
-    ): AccountProfileEntity {
-
-        return accountRepository
-            .createOrReconnectAndSelect(
-                accountEmail = email
-            )
-    }
-
-
     suspend fun prepareAccountProfile(
         email: String
     ): AccountProfileEntity {
@@ -62,13 +43,6 @@ class GmailAccountManager(
     }
 
 
-    suspend fun getAccount(): String? {
-
-        return getSelectedAccountProfile()
-            ?.accountEmail
-    }
-
-
     suspend fun getSelectedAccountProfile(): AccountProfileEntity? {
 
         return accountRepository
@@ -89,19 +63,6 @@ class GmailAccountManager(
     fun observeAccountProfiles(): Flow<List<AccountProfileEntity>> {
 
         return accountRepository.observeProfiles()
-    }
-
-
-    suspend fun hasAccount(): Boolean {
-
-        return getAccount() != null
-    }
-
-
-    suspend fun clearAccount() {
-
-        accountRepository
-            .disconnectSelectedProfile()
     }
 
 
