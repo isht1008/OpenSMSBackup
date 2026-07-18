@@ -1,50 +1,34 @@
 package io.github.isht1008.opensmsbackup.gmail.account
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.first
-
-
-private val Context.dataStore by preferencesDataStore(
-    name = "gmail_account"
-)
+import io.github.isht1008.opensmsbackup.account.data.MultiAccountRepository
 
 
 class GmailAccountManager(
     private val context: Context
 ) {
 
-    companion object {
-
-        private val GMAIL_ACCOUNT_KEY =
-            stringPreferencesKey(
-                "backup_gmail_account"
-            )
-    }
-
+    private val accountRepository =
+        MultiAccountRepository.create(
+            context.applicationContext
+        )
 
     suspend fun saveAccount(
         email: String
     ) {
 
-        context.dataStore.edit { preferences ->
-
-            preferences[GMAIL_ACCOUNT_KEY] = email
-
-        }
+        accountRepository
+            .createOrReconnectAndSelect(
+                accountEmail = email
+            )
     }
 
 
     suspend fun getAccount(): String? {
 
-        val preferences =
-            context.dataStore.data.first()
-
-        return preferences[
-            GMAIL_ACCOUNT_KEY
-        ]
+        return accountRepository
+            .getSelectedProfile()
+            ?.accountEmail
     }
 
 
@@ -56,11 +40,7 @@ class GmailAccountManager(
 
     suspend fun clearAccount() {
 
-        context.dataStore.edit { preferences ->
-
-            preferences.remove(
-                GMAIL_ACCOUNT_KEY
-            )
-        }
+        accountRepository
+            .disconnectSelectedProfile()
     }
 }
