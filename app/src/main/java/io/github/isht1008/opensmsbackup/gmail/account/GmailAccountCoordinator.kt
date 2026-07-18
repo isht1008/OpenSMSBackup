@@ -34,9 +34,6 @@ class GmailAccountCoordinator(
 
     suspend fun connectAccount(): Result<String> {
 
-        var preparedProfile:
-                AccountProfileEntity? = null
-
         return try {
 
             val email =
@@ -50,54 +47,72 @@ class GmailAccountCoordinator(
                         email
                     )
 
-            preparedProfile = profile
+            val authorizedProfile =
+                authorizeAccount(profile)
+                    .getOrThrow()
 
-            val authorizationResult =
-                authorizeGmail(
-                    profile
+            accountManager
+                .selectAccountProfile(
+                    authorizedProfile
                 )
 
-
-            if (authorizationResult) {
-
-                accountManager
-                    .selectAccountProfile(
-                        profile
-                    )
-
-                Result.success(
-                    profile.accountEmail
-                )
-
-            } else {
-
-                accountManager
-                    .markAuthorizationRequired(
-                        profile
-                    )
-
-                Result.failure(
-                    Exception(
-                        "Gmail permission not granted"
-                    )
-                )
-            }
+            Result.success(
+                authorizedProfile.accountEmail
+            )
 
 
         } catch (e: Exception) {
 
-            preparedProfile?.let { profile ->
-                runCatching {
-                    accountManager
-                        .markAuthorizationRequired(
-                            profile
-                        )
-                }
-            }
-
             Result.failure(e)
 
         }
+    }
+
+    suspend fun authorizeAccount(
+        profile: AccountProfileEntity
+    ): Result<AccountProfileEntity> {
+
+        return try {
+            val authorized =
+                authorizeGmail(profile)
+
+            if (!authorized) {
+                throw IllegalStateException(
+                    "Gmail permission not granted"
+                )
+            }
+
+            accountManager.markConnected(
+                profile
+            )
+
+            Result.success(
+                profile.copy(
+                    connectionState =
+                        AccountProfileEntity
+                            .CONNECTION_STATE_CONNECTED
+                )
+            )
+
+        } catch (error: Exception) {
+            runCatching {
+                accountManager
+                    .markAuthorizationRequired(
+                        profile
+                    )
+            }
+
+            Result.failure(error)
+        }
+    }
+
+    suspend fun disconnectAccount(
+        profile: AccountProfileEntity
+    ) {
+
+        accountManager.disconnectAccountProfile(
+            profile
+        )
     }
 
 

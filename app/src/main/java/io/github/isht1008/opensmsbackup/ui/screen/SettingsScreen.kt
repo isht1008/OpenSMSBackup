@@ -9,19 +9,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
-import io.github.isht1008.opensmsbackup.ui.component.GmailAccountDialog
+import io.github.isht1008.opensmsbackup.ui.component.AccountProfileCard
+import io.github.isht1008.opensmsbackup.ui.component.DisconnectAccountDialog
+import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.SettingCard
 import io.github.isht1008.opensmsbackup.ui.component.TopBar
 import io.github.isht1008.opensmsbackup.viewmodel.SettingsViewModel
@@ -31,40 +32,25 @@ import io.github.isht1008.opensmsbackup.viewmodel.SettingsViewModelFactory
 fun SettingsScreen(
     onBackClick: () -> Unit = {}
 ) {
-
     val context = LocalContext.current
-
-    val gmailAccountManager =
-        GmailAccountManager(context)
-
-    val gmailAccountCoordinator =
-        GmailAccountCoordinator(context)
 
     val viewModel: SettingsViewModel =
         viewModel(
             factory = SettingsViewModelFactory(
-                gmailAccountManager,
-                gmailAccountCoordinator
+                GmailAccountManager(context),
+                GmailAccountCoordinator(context)
             )
         )
 
-    var showGmailDialog by remember {
-        mutableStateOf(false)
-    }
-
     Scaffold(
-
         topBar = {
             TopBar(
                 title = "Settings",
                 onBackClick = onBackClick
             )
         }
-
     ) { paddingValues ->
-
         Column(
-
             modifier = Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
@@ -73,50 +59,78 @@ fun SettingsScreen(
                 .verticalScroll(
                     rememberScrollState()
                 ),
-
             verticalArrangement = Arrangement.Top
-
         ) {
-
-            SettingCard(
-
-                title = "Backup Gmail Account",
-
-                subtitle = when {
-
-                    viewModel.isConnecting ->
-                        "Connecting..."
-
-                    viewModel.isConnected ->
-                        "${viewModel.gmailAccount}\nTap to change account"
-
-                    else ->
-                        "Not connected\nTap to connect Gmail"
-
-                },
-
-                onClick = {
-
-                    if (viewModel.isConnecting) {
-                        return@SettingCard
-                    }
-
-                    if (viewModel.isConnected) {
-
-                        showGmailDialog = true
-
-                    } else {
-
-                        viewModel.connectAccount()
-
-                    }
-
-                }
-
+            Text(
+                text = "Backup Gmail Accounts",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
             )
 
             Spacer(
                 modifier = Modifier.height(12.dp)
+            )
+
+            if (viewModel.accountProfiles.isEmpty()) {
+                Text(
+                    text = "No Gmail accounts connected.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                viewModel.accountProfiles.forEach { profile ->
+                    AccountProfileCard(
+                        profile = profile,
+                        isSelected =
+                            viewModel.selectedProfileId ==
+                                    profile.profileId,
+                        isBusy =
+                            viewModel.isAddingAccount ||
+                                    viewModel.busyProfileId != null,
+                        onSelect = {
+                            viewModel.selectAccount(profile)
+                        },
+                        onAuthorize = {
+                            viewModel.reauthorizeAccount(profile)
+                        },
+                        onDisconnect = {
+                            viewModel.requestDisconnect(profile)
+                        }
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            PrimaryButton(
+                text =
+                    if (viewModel.isAddingAccount) {
+                        "Adding account..."
+                    } else {
+                        "Add Account"
+                    },
+                onClick = viewModel::addAccount
+            )
+
+            viewModel.errorMessage?.let { error ->
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(20.dp)
             )
 
             SettingCard(
@@ -125,9 +139,7 @@ fun SettingsScreen(
                 onClick = { }
             )
 
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
+            Spacer(modifier = Modifier.height(12.dp))
 
             SettingCard(
                 title = "Include Contact Names",
@@ -135,9 +147,7 @@ fun SettingsScreen(
                 onClick = { }
             )
 
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
+            Spacer(modifier = Modifier.height(12.dp))
 
             SettingCard(
                 title = "Automatic Backup",
@@ -145,54 +155,26 @@ fun SettingsScreen(
                 onClick = { }
             )
 
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
+            Spacer(modifier = Modifier.height(12.dp))
 
             SettingCard(
                 title = "About",
                 subtitle = "Version 0.2.0",
                 onClick = { }
             )
-
         }
-
     }
 
-    if (
-        showGmailDialog &&
-        viewModel.gmailAccount != null
-    ) {
-
-        GmailAccountDialog(
-
-            email = viewModel.gmailAccount!!,
-
-            onChangeAccount = {
-
-                showGmailDialog = false
-                viewModel.connectAccount()
-
-            },
-
-            onDisconnect = {
-
-                showGmailDialog = false
-                viewModel.removeAccount()
-
-            },
-            onRevokeAccess = {
-                // TODO: Implement Google OAuth revocation
-            },
-
-            onDismiss = {
-
-                showGmailDialog = false
-
-            }
-
-        )
-
-    }
-
+    viewModel.pendingDisconnectProfile
+        ?.let { profile ->
+            DisconnectAccountDialog(
+                profile = profile,
+                isLastUsableAccount =
+                    viewModel.isLastUsableDisconnect,
+                onConfirm =
+                    viewModel::confirmDisconnect,
+                onDismiss =
+                    viewModel::dismissDisconnect
+            )
+        }
 }

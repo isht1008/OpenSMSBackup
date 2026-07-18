@@ -3,6 +3,7 @@ package io.github.isht1008.opensmsbackup.gmail.account
 import android.content.Context
 import io.github.isht1008.opensmsbackup.account.data.MultiAccountRepository
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
+import kotlinx.coroutines.flow.Flow
 
 
 class GmailAccountManager(
@@ -85,6 +86,12 @@ class GmailAccountManager(
     }
 
 
+    fun observeAccountProfiles(): Flow<List<AccountProfileEntity>> {
+
+        return accountRepository.observeProfiles()
+    }
+
+
     suspend fun hasAccount(): Boolean {
 
         return getAccount() != null
@@ -95,6 +102,29 @@ class GmailAccountManager(
 
         accountRepository
             .disconnectSelectedProfile()
+    }
+
+
+    suspend fun disconnectAccountProfile(
+        profile: AccountProfileEntity
+    ) {
+
+        accountRepository.disconnectProfile(
+            profile.profileId
+        )
+    }
+
+
+    suspend fun markConnected(
+        profile: AccountProfileEntity
+    ) {
+
+        accountRepository.updateConnectionState(
+            profileId = profile.profileId,
+            connectionState =
+                AccountProfileEntity
+                    .CONNECTION_STATE_CONNECTED
+        )
     }
 
 

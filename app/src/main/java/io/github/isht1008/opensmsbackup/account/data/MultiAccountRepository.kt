@@ -184,6 +184,34 @@ class MultiAccountRepository(
         selectedProfileStore.clearSelection()
     }
 
+    suspend fun disconnectProfile(
+        profileId: String
+    ) {
+        requireNotNull(
+            accountDao.findProfileById(
+                profileId
+            )
+        ) {
+            "Cannot disconnect an unknown account profile."
+        }
+
+        accountDao.updateConnectionState(
+            profileId = profileId,
+            connectionState =
+                AccountProfileEntity
+                    .CONNECTION_STATE_DISCONNECTED,
+            updatedTime = System.currentTimeMillis()
+        )
+
+        if (
+            selectedProfileStore
+                .getSelectedProfileId() ==
+            profileId
+        ) {
+            selectedProfileStore.clearSelection()
+        }
+    }
+
     suspend fun updateConnectionState(
         profileId: String,
         connectionState: String

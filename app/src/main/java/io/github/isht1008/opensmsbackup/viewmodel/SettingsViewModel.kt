@@ -5,114 +5,193 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
-import io.github.isht1008.opensmsbackup.gmail.auth.GmailAuthState
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-
 
 class SettingsViewModel(
     private val gmailAccountManager: GmailAccountManager,
     private val gmailAccountCoordinator: GmailAccountCoordinator
 ) : ViewModel() {
 
-
-    var authState by mutableStateOf<GmailAuthState>(
-        GmailAuthState.NotConnected
-    )
+    var accountProfiles by
+        mutableStateOf<List<AccountProfileEntity>>(
+            emptyList()
+        )
         private set
 
+    var selectedProfileId by
+        mutableStateOf<String?>(null)
+        private set
 
-    val isConnected: Boolean
-        get() = authState is GmailAuthState.Connected
+    var busyProfileId by
+        mutableStateOf<String?>(null)
+        private set
 
+    var isAddingAccount by
+        mutableStateOf(false)
+        private set
 
-    val gmailAccount: String?
-        get() =
-            (authState as? GmailAuthState.Connected)
-                ?.email
+    var pendingDisconnectProfile by
+        mutableStateOf<AccountProfileEntity?>(null)
+        private set
 
+    var errorMessage by
+        mutableStateOf<String?>(null)
+        private set
 
-    val isConnecting: Boolean
-        get() =
-            authState is GmailAuthState.Connecting
+    val isLastUsableDisconnect: Boolean
+        get() {
+            val pending =
+                pendingDisconnectProfile
+                    ?: return false
 
+            return pending.connectionState ==
+                    AccountProfileEntity
+                        .CONNECTION_STATE_CONNECTED &&
+                    accountProfiles.count { profile ->
+                        profile.connectionState ==
+                                AccountProfileEntity
+                                    .CONNECTION_STATE_CONNECTED
+                    } <= 1
+        }
 
     init {
-        loadSavedAccount()
+        observeAccounts()
+        refreshSelectedProfile()
     }
 
-
-    private fun loadSavedAccount() {
-
-        viewModelScope.launch {
-
-            val account =
-                gmailAccountManager.getAccount()
-
-            if (account != null) {
-
-                authState =
-                    GmailAuthState.Connected(
-                        account
-                    )
-            }
+    fun addAccount() {
+        if (isAddingAccount || busyProfileId != null) {
+            return
         }
-    }
-
-
-    fun connectAccount() {
 
         viewModelScope.launch {
-
-            authState =
-                GmailAuthState.Connecting
-
-
-            val result =
-                gmailAccountCoordinator
-                    .connectAccount()
-
-
-            result.onSuccess { email ->
-
-                authState =
-                    GmailAuthState.Connected(
-                        email
-                    )
-
-            }.onFailure { error ->
-
-                authState =
-                    GmailAuthState.Error(
-                        error.message
-                            ?: "Unknown error"
-                    )
-            }
-        }
-    }
-
-
-    fun removeAccount() {
-
-        viewModelScope.launch {
+            isAddingAccount = true
+            errorMessage = null
 
             gmailAccountCoordinator
-                .removeAccount()
+                .connectAccount()
+                .onSuccess {
+                    refreshSelectedProfile()
+                }
+                .onFailure {
+                    errorMessage =
+                        "Unable to add account. Try again."
+                }
 
-            authState =
-                GmailAuthState.NotConnected
+            isAddingAccount = false
         }
     }
 
-
-    fun setError(
-        message: String
+    fun selectAccount(
+        profile: AccountProfileEntity
     ) {
+        if (
+            profile.connectionState !=
+            AccountProfileEntity
+                .CONNECTION_STATE_CONNECTED
+        ) {
+            errorMessage =
+                "Authorize this account before selecting it."
+            return
+        }
 
-        authState =
-            GmailAuthState.Error(
-                message
-            )
+        viewModelScope.launch {
+            busyProfileId = profile.profileId
+            errorMessage = null
+
+            runCatching {
+                gmailAccountManager
+                    .selectAccountProfile(profile)
+            }.onSuccess {
+                selectedProfileId = profile.profileId
+            }.onFailure {
+                errorMessage =
+                    "Unable to select account."
+            }
+
+            busyProfileId = null
+        }
+    }
+
+    fun reauthorizeAccount(
+        profile: AccountProfileEntity
+    ) {
+        viewModelScope.launch {
+            busyProfileId = profile.profileId
+            errorMessage = null
+
+            gmailAccountCoordinator
+                .authorizeAccount(profile)
+                .onFailure {
+                    errorMessage =
+                        "Unable to authorize account. Try again."
+                }
+
+            busyProfileId = null
+        }
+    }
+
+    fun requestDisconnect(
+        profile: AccountProfileEntity
+    ) {
+        pendingDisconnectProfile = profile
+    }
+
+    fun dismissDisconnect() {
+        pendingDisconnectProfile = null
+    }
+
+    fun confirmDisconnect() {
+        val profile =
+            pendingDisconnectProfile
+                ?: return
+
+        pendingDisconnectProfile = null
+
+        viewModelScope.launch {
+            busyProfileId = profile.profileId
+            errorMessage = null
+
+            runCatching {
+                gmailAccountCoordinator
+                    .disconnectAccount(profile)
+            }.onSuccess {
+                if (selectedProfileId == profile.profileId) {
+                    selectedProfileId = null
+                }
+            }.onFailure {
+                errorMessage =
+                    "Unable to disconnect account."
+            }
+
+            busyProfileId = null
+        }
+    }
+
+    fun clearError() {
+        errorMessage = null
+    }
+
+    private fun observeAccounts() {
+        viewModelScope.launch {
+            gmailAccountManager
+                .observeAccountProfiles()
+                .collectLatest { profiles ->
+                    accountProfiles = profiles
+                }
+        }
+    }
+
+    private fun refreshSelectedProfile() {
+        viewModelScope.launch {
+            selectedProfileId =
+                gmailAccountManager
+                    .getSelectedAccountProfile()
+                    ?.profileId
+        }
     }
 }
