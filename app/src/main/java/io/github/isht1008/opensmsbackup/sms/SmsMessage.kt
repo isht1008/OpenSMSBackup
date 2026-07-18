@@ -16,10 +16,21 @@ data class SmsMessage(
 
     val dateFormatted: String,
 
+    /**
+     * Raw Android Telephony SMS type.
+     *
+     * Kept temporarily for compatibility with the existing JSON,
+     * conversation and backup code.
+     */
     val type: Int,
 
     val subscriptionId: Int? = null,
 
-    val isRead: Boolean = true
-)
+    val isRead: Boolean = true,
 
+    val serviceCenter: String? = null
+) {
+
+    val smsType: SmsType
+        get() = SmsType.fromAndroidType(type)
+}

@@ -15,12 +15,12 @@ interface BackupMessageDao {
 
     @Query(
         """
-        SELECT *
-        FROM backup_messages
-        WHERE account_email = :accountEmail
-        AND fingerprint = :fingerprint
-        LIMIT 1
-        """
+    SELECT *
+    FROM backup_messages
+    WHERE account_email = :accountEmail
+    AND fingerprint = :fingerprint
+    LIMIT 1
+    """
     )
     suspend fun findByFingerprint(
         accountEmail: String,
@@ -29,10 +29,26 @@ interface BackupMessageDao {
 
     @Query(
         """
-        SELECT COUNT(*)
-        FROM backup_messages
-        WHERE account_email = :accountEmail
+    SELECT *
+    FROM backup_messages
+    WHERE account_id = :accountId
+    AND thread_id = :androidThreadId
+    AND gmail_thread_id IS NOT NULL
+    ORDER BY message_date DESC, sms_id DESC
+    LIMIT 1
+    """
+    )
+    suspend fun findLatestThreadMessage(
+        accountId: String,
+        androidThreadId: Long
+    ): BackupMessageEntity?
+
+    @Query(
         """
+    SELECT COUNT(*)
+    FROM backup_messages
+    WHERE account_email = :accountEmail
+    """
     )
     suspend fun count(
         accountEmail: String
@@ -40,9 +56,9 @@ interface BackupMessageDao {
 
     @Query(
         """
-        DELETE FROM backup_messages
-        WHERE account_email = :accountEmail
-        """
+    DELETE FROM backup_messages
+    WHERE account_email = :accountEmail
+    """
     )
     suspend fun deleteAccount(
         accountEmail: String
@@ -50,13 +66,14 @@ interface BackupMessageDao {
 
     @Query(
         """
-        UPDATE backup_messages
-        SET gmail_message_id = :gmailId
-        WHERE id = :id
-        """
+    UPDATE backup_messages
+    SET gmail_message_id = :gmailId
+    WHERE id = :id
+    """
     )
     suspend fun updateGmailId(
         id: Long,
         gmailId: String
     )
+
 }

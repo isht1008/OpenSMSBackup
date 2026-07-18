@@ -18,4 +18,4 @@ local.properties
 /captures/
 
 # macOS
-.DS_Store
+.DS_Store.kotlin/

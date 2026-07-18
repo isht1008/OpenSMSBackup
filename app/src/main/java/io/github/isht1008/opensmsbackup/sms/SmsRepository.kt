@@ -7,99 +7,262 @@ import io.github.isht1008.opensmsbackup.util.DateUtils
 
 class SmsRepository {
 
-    private val contactRepository = ContactRepository()
+    private val contactRepository =
+        ContactRepository()
 
-    fun getSmsCount(context: Context): Int {
+    fun getSmsCount(
+        context: Context
+    ): Int {
 
-        val cursor = context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI,
-            arrayOf(Telephony.Sms._ID),
-            null,
-            null,
-            null
-        )
+        return context.contentResolver
+            .query(
+                Telephony.Sms.CONTENT_URI,
+                arrayOf(
+                    Telephony.Sms._ID
+                ),
+                null,
+                null,
+                null
+            )
+            ?.use { cursor ->
 
-        val count = cursor?.count ?: 0
+                cursor.count
 
-        cursor?.close()
-
-        return count
+            }
+            ?: 0
     }
 
     fun getSmsMessages(
         context: Context,
         includeContactNames: Boolean,
-        onProgress: ((current: Int, total: Int) -> Unit)? = null
+        onProgress: (
+            (
+            current: Int,
+            total: Int
+        ) -> Unit
+        )? = null
     ): List<SmsMessage> {
 
-        val smsList = mutableListOf<SmsMessage>()
+        val smsList =
+            mutableListOf<SmsMessage>()
 
-        val totalMessages = getSmsCount(context)
+        val totalMessages =
+            getSmsCount(context)
 
         val contacts =
             if (includeContactNames) {
-                contactRepository.loadContacts(context)
+
+                contactRepository.loadContacts(
+                    context
+                )
+
             } else {
+
                 emptyMap()
+
             }
 
-        val cursor = context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI,
+        val projection =
             arrayOf(
                 Telephony.Sms._ID,
+                Telephony.Sms.THREAD_ID,
                 Telephony.Sms.ADDRESS,
                 Telephony.Sms.BODY,
                 Telephony.Sms.DATE,
-                Telephony.Sms.TYPE
-            ),
-            null,
-            null,
-            "${Telephony.Sms.DATE} DESC"
-        )
+                Telephony.Sms.TYPE,
+                Telephony.Sms.SUBSCRIPTION_ID,
+                Telephony.Sms.READ,
+                Telephony.Sms.SERVICE_CENTER
+            )
 
-        cursor?.use {
+        context.contentResolver
+            .query(
+                Telephony.Sms.CONTENT_URI,
+                projection,
+                null,
+                null,
+                "${Telephony.Sms.DATE} DESC"
+            )
+            ?.use { cursor ->
 
-            val idIndex = it.getColumnIndexOrThrow(Telephony.Sms._ID)
-            val addressIndex = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-            val bodyIndex = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-            val dateIndex = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
-            val typeIndex = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
+                val idIndex =
+                    cursor.getColumnIndexOrThrow(
+                        Telephony.Sms._ID
+                    )
 
-            var current = 0
+                val threadIdIndex =
+                    cursor.getColumnIndex(
+                        Telephony.Sms.THREAD_ID
+                    )
 
-            while (it.moveToNext()) {
+                val addressIndex =
+                    cursor.getColumnIndexOrThrow(
+                        Telephony.Sms.ADDRESS
+                    )
 
-                current++
+                val bodyIndex =
+                    cursor.getColumnIndexOrThrow(
+                        Telephony.Sms.BODY
+                    )
 
-                if (current % 250 == 0 || current == totalMessages) {
-                    onProgress?.invoke(current, totalMessages)
-                }
+                val dateIndex =
+                    cursor.getColumnIndexOrThrow(
+                        Telephony.Sms.DATE
+                    )
 
-                val address = it.getString(addressIndex)
+                val typeIndex =
+                    cursor.getColumnIndexOrThrow(
+                        Telephony.Sms.TYPE
+                    )
 
-                val contactName =
-                    if (!includeContactNames || address.isNullOrBlank()) {
-                        null
-                    } else {
-                        contacts[address]
+                val subscriptionIdIndex =
+                    cursor.getColumnIndex(
+                        Telephony.Sms.SUBSCRIPTION_ID
+                    )
+
+                val readIndex =
+                    cursor.getColumnIndex(
+                        Telephony.Sms.READ
+                    )
+
+                val serviceCenterIndex =
+                    cursor.getColumnIndex(
+                        Telephony.Sms.SERVICE_CENTER
+                    )
+
+                var current = 0
+
+                while (cursor.moveToNext()) {
+
+                    current++
+
+                    if (
+                        current % 250 == 0 ||
+                        current == totalMessages
+                    ) {
+
+                        onProgress?.invoke(
+                            current,
+                            totalMessages
+                        )
                     }
 
-                val smsDate = it.getLong(dateIndex)
+                    val address =
+                        cursor.getNullableString(
+                            addressIndex
+                        )
 
-                smsList.add(
-                    SmsMessage(
-                        id = it.getLong(idIndex),
-                        address = address,
-                        contactName = contactName,
-                        body = it.getString(bodyIndex),
-                        date = smsDate,
-                        dateFormatted = DateUtils.formatDateIST(smsDate),
-                        type = it.getInt(typeIndex)
+                    val contactName =
+                        if (
+                            !includeContactNames ||
+                            address.isNullOrBlank()
+                        ) {
+
+                            null
+
+                        } else {
+
+                            contacts[address]
+
+                        }
+
+                    val smsDate =
+                        cursor.getLong(
+                            dateIndex
+                        )
+
+                    smsList.add(
+                        SmsMessage(
+                            id = cursor.getLong(
+                                idIndex
+                            ),
+                            threadId =
+                                cursor.getNullableLong(
+                                    threadIdIndex
+                                ) ?: 0L,
+                            address = address,
+                            contactName = contactName,
+                            body =
+                                cursor.getNullableString(
+                                    bodyIndex
+                                ),
+                            date = smsDate,
+                            dateFormatted =
+                                DateUtils.formatDateIST(
+                                    smsDate
+                                ),
+                            type = cursor.getInt(
+                                typeIndex
+                            ),
+                            subscriptionId =
+                                cursor.getNullableInt(
+                                    subscriptionIdIndex
+                                ),
+                            isRead =
+                                cursor.getNullableInt(
+                                    readIndex
+                                )?.let { value ->
+                                    value != 0
+                                } ?: true,
+                            serviceCenter =
+                                cursor.getNullableString(
+                                    serviceCenterIndex
+                                )
+                        )
                     )
-                )
+                }
             }
+
+        if (totalMessages == 0) {
+
+            onProgress?.invoke(
+                0,
+                0
+            )
         }
 
         return smsList
+    }
+
+    private fun android.database.Cursor.getNullableString(
+        columnIndex: Int
+    ): String? {
+
+        if (
+            columnIndex < 0 ||
+            isNull(columnIndex)
+        ) {
+            return null
+        }
+
+        return getString(columnIndex)
+    }
+
+    private fun android.database.Cursor.getNullableLong(
+        columnIndex: Int
+    ): Long? {
+
+        if (
+            columnIndex < 0 ||
+            isNull(columnIndex)
+        ) {
+            return null
+        }
+
+        return getLong(columnIndex)
+    }
+
+    private fun android.database.Cursor.getNullableInt(
+        columnIndex: Int
+    ): Int? {
+
+        if (
+            columnIndex < 0 ||
+            isNull(columnIndex)
+        ) {
+            return null
+        }
+
+        return getInt(columnIndex)
     }
 }

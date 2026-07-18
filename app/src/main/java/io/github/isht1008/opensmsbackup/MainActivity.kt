@@ -13,107 +13,46 @@ class MainActivity : ComponentActivity() {
 
     private val homeViewModel: HomeViewModel by viewModels()
 
-
-    // SMS Permission
-    private val requestSmsPermission =
-        registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { granted ->
-
-            homeViewModel.updateStatus(
-                if (granted) {
-                    "SMS permission granted."
-                } else {
-                    "SMS permission denied."
-                }
-            )
-
-        }
-
-
-    // Contacts Permission
-    private val requestContactsPermission =
-        registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { granted ->
-
-            homeViewModel.updateStatus(
-                if (granted) {
-                    "Contacts permission granted."
-                } else {
-                    "Contacts permission denied."
-                }
-            )
-
-        }
-
-
-    // Gmail OAuth Consent
-    // Will be connected when GmailAuthorizationManager flow is wired
     private val gmailConsentLauncher =
         registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
 
             if (result.resultCode == RESULT_OK) {
-
                 homeViewModel.updateStatus(
-                    "Gmail permission granted."
+                    "Gmail permission granted. Tap Gmail backup again."
                 )
-
             } else {
-
                 homeViewModel.updateStatus(
                     "Gmail permission denied."
                 )
-
             }
-
         }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         homeViewModel.onGmailConsentRequired = { intent ->
-
             gmailConsentLauncher.launch(intent)
-
         }
 
         setContent {
-
             OpenSMSBackupTheme {
-
                 OpenSmsBackupNavHost(
-
                     homeViewModel = homeViewModel,
-
-
                     onBackupClick = {
-
                         homeViewModel.startBackup(
                             context = this@MainActivity,
                             includeContactNames = true
                         )
-
                     },
-
-
                     onGoogleSignInClick = {
-
                         homeViewModel.signInGoogle(
                             context = this@MainActivity
                         )
-
                     }
-
                 )
-
             }
-
         }
-
     }
-
 }
