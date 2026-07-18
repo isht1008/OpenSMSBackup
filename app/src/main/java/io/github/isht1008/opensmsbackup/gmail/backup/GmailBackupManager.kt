@@ -1,6 +1,7 @@
 package io.github.isht1008.opensmsbackup.gmail.backup
 
 import android.content.Context
+import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.database.BackupAccountEntity
 import io.github.isht1008.opensmsbackup.database.ConversationSnapshotEntity
 import io.github.isht1008.opensmsbackup.database.DatabaseProvider
@@ -37,10 +38,44 @@ class GmailBackupManager {
         ) -> Unit
     ): Result<GmailBackupSummary> {
 
+        return backup(
+            context = context,
+            accountProfile =
+                AccountProfileEntity(
+                    profileId =
+                        "compatibility:$accountEmail",
+                    accountEmail = accountEmail
+                ),
+            includeContactNames =
+                includeContactNames,
+            maxConversations =
+                maxConversations,
+            onProgress = onProgress
+        )
+    }
+
+    suspend fun backup(
+        context: Context,
+        accountProfile: AccountProfileEntity,
+        includeContactNames: Boolean,
+        maxConversations: Int? = null,
+        onProgress: (
+            current: Int,
+            total: Int,
+            uploaded: Int,
+            skipped: Int,
+            failed: Int
+        ) -> Unit
+    ): Result<GmailBackupSummary> {
+
         return withContext(Dispatchers.IO) {
 
             try {
-                require(accountEmail.isNotBlank()) {
+                require(
+                    accountProfile
+                        .accountEmail
+                        .isNotBlank()
+                ) {
                     "Gmail account email cannot be blank."
                 }
 
@@ -52,7 +87,9 @@ class GmailBackupManager {
                 }
 
                 val trimmedEmail =
-                    accountEmail.trim()
+                    accountProfile
+                        .accountEmail
+                        .trim()
 
                 val accountId =
                     trimmedEmail.lowercase(
@@ -104,7 +141,7 @@ class GmailBackupManager {
                 val gmailService =
                     GmailApiClient(context)
                         .createService(
-                            trimmedEmail
+                            accountProfile
                         )
 
                 val uploader =

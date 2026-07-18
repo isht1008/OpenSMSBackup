@@ -38,7 +38,7 @@ class GmailApiClient(
     }
 
     suspend fun listLabels(
-        email: String
+        profile: AccountProfileEntity
     ): Result<ListLabelsResponse> {
 
         return withContext(Dispatchers.IO) {
@@ -46,7 +46,7 @@ class GmailApiClient(
             try {
 
                 val response =
-                    createService(email)
+                    createService(profile)
                         .users()
                         .labels()
                         .list("me")
@@ -62,6 +62,19 @@ class GmailApiClient(
 
         }
 
+    }
+
+    suspend fun listLabels(
+        email: String
+    ): Result<ListLabelsResponse> {
+
+        return listLabels(
+            AccountProfileEntity(
+                profileId =
+                    "compatibility:$email",
+                accountEmail = email
+            )
+        )
     }
 
 }

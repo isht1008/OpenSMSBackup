@@ -10,19 +10,6 @@ class GoogleCredentialProvider(
 ) {
 
     fun createCredential(
-        email: String
-    ): GoogleAccountCredential {
-
-        return createCredential(
-            AccountProfileEntity(
-                profileId =
-                    "compatibility:$email",
-                accountEmail = email
-            )
-        )
-    }
-
-    fun createCredential(
         profile: AccountProfileEntity
     ): GoogleAccountCredential {
 

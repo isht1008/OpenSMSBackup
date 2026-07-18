@@ -237,11 +237,11 @@ class HomeViewModel : ViewModel() {
             updateStatus("Connecting to Gmail...")
 
             try {
-                val account =
+                val accountProfile =
                     GmailAccountManager(context)
-                        .getAccount()
+                        .getSelectedAccountProfile()
 
-                if (account.isNullOrBlank()) {
+                if (accountProfile == null) {
                     updateStatus(
                         "No Gmail account connected."
                     )
@@ -250,7 +250,9 @@ class HomeViewModel : ViewModel() {
 
                 val result =
                     GmailApiClient(context)
-                        .listLabels(account)
+                        .listLabels(
+                            accountProfile
+                        )
 
                 result.onSuccess { response ->
                     updateStatus(
@@ -300,11 +302,11 @@ class HomeViewModel : ViewModel() {
                     "Preparing conversation backup..."
                 )
 
-                val accountEmail =
+                val accountProfile =
                     GmailAccountManager(context)
-                        .getAccount()
+                        .getSelectedAccountProfile()
 
-                if (accountEmail.isNullOrBlank()) {
+                if (accountProfile == null) {
                     updateStatus(
                         """
                         No Gmail account connected.
@@ -318,7 +320,8 @@ class HomeViewModel : ViewModel() {
                 val result =
                     GmailBackupManager().backup(
                         context = context,
-                        accountEmail = accountEmail,
+                        accountProfile =
+                            accountProfile,
                         includeContactNames =
                             includeContactNames,
                         maxConversations =
