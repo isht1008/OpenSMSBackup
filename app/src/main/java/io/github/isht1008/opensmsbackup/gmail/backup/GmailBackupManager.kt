@@ -10,6 +10,10 @@ import io.github.isht1008.opensmsbackup.gmail.mime.ConversationMimeMessageBuilde
 import io.github.isht1008.opensmsbackup.gmail.upload.GmailUploader
 import io.github.isht1008.opensmsbackup.sms.SmsRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
@@ -131,7 +135,19 @@ class GmailBackupManager {
                 val warnings =
                     mutableListOf<String>()
 
+                onProgress(
+                    checked,
+                    conversations.size,
+                    uploaded,
+                    skipped,
+                    failed
+                )
+
                 for (conversation in conversations) {
+
+                    currentCoroutineContext()
+                        .ensureActive()
+                    yield()
 
                     if (
                         maxConversations != null &&
@@ -140,8 +156,6 @@ class GmailBackupManager {
                         safetyLimitReached = true
                         break
                     }
-
-                    checked++
 
                     val snapshotHash =
                         ConversationSnapshotHashGenerator
@@ -161,6 +175,7 @@ class GmailBackupManager {
                         snapshotHash
                     ) {
                         skipped++
+                        checked++
 
                         onProgress(
                             checked,
@@ -287,6 +302,8 @@ class GmailBackupManager {
                             }
                         }
 
+                    checked++
+
                     onProgress(
                         checked,
                         conversations.size,
@@ -330,6 +347,8 @@ class GmailBackupManager {
                     )
                 )
 
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (error: Exception) {
                 Result.failure(error)
             }

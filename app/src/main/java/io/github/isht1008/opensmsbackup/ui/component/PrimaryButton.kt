@@ -12,11 +12,13 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun PrimaryButton(
     text: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
 
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp),

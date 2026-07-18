@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupSession
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -138,6 +139,12 @@ class SettingsViewModel(
     fun requestDisconnect(
         profile: AccountProfileEntity
     ) {
+        if (GmailBackupSession.isActive(profile.profileId)) {
+            errorMessage =
+                "Cancel the running Gmail backup before disconnecting this account."
+            return
+        }
+
         pendingDisconnectProfile = profile
     }
 
@@ -149,6 +156,13 @@ class SettingsViewModel(
         val profile =
             pendingDisconnectProfile
                 ?: return
+
+        if (GmailBackupSession.isActive(profile.profileId)) {
+            pendingDisconnectProfile = null
+            errorMessage =
+                "Cancel the running Gmail backup before disconnecting this account."
+            return
+        }
 
         pendingDisconnectProfile = null
 

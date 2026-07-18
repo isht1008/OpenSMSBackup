@@ -5,6 +5,7 @@ import io.github.isht1008.opensmsbackup.gmail.auth.GmailAuthorizationManager
 import io.github.isht1008.opensmsbackup.gmail.auth.GoogleSignInManager
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.CancellationException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -61,6 +62,8 @@ class GmailAccountCoordinator(
             )
 
 
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
 
             Result.failure(e)
@@ -94,6 +97,8 @@ class GmailAccountCoordinator(
                 )
             )
 
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Exception) {
             runCatching {
                 accountManager

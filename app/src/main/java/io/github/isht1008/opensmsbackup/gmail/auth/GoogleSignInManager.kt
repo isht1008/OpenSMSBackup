@@ -8,6 +8,7 @@ import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import io.github.isht1008.opensmsbackup.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 class GoogleSignInManager(
@@ -61,6 +62,8 @@ class GoogleSignInManager(
                 )
 
 
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (e: GetCredentialException) {
 
                 Result.failure(

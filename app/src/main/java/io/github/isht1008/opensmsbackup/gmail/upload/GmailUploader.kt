@@ -7,6 +7,7 @@ import io.github.isht1008.opensmsbackup.gmail.label.GmailLabels
 import io.github.isht1008.opensmsbackup.gmail.mime.GmailMessageEncoder
 import io.github.isht1008.opensmsbackup.gmail.model.SmsEmail
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 class GmailUploader(
@@ -69,6 +70,8 @@ class GmailUploader(
                     )
                 )
 
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (error: Exception) {
                 Result.failure(error)
             }
@@ -96,6 +99,8 @@ class GmailUploader(
 
                 Result.success(Unit)
 
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (error: Exception) {
                 Result.failure(error)
             }

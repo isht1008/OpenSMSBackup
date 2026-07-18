@@ -15,7 +15,10 @@ import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupManager
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupSession
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -38,6 +41,12 @@ class HomeViewModel : ViewModel() {
 
     var isGmailBackingUp by mutableStateOf(false)
         private set
+
+    var isGmailBackupCancellationRequested by
+        mutableStateOf(false)
+        private set
+
+    private var activeGmailBackupJob: Job? = null
 
     var gmailBackupProgress by mutableStateOf(0f)
         private set
@@ -268,14 +277,27 @@ class HomeViewModel : ViewModel() {
         maxConversations: Int? = 3
     ) {
 
-        if (isGmailBackingUp || isBackingUp) {
+        if (
+            activeGmailBackupJob?.isActive == true ||
+            isGmailBackingUp ||
+            isBackingUp
+        ) {
             return
         }
 
         isGmailBackingUp = true
         gmailBackupProgress = 0f
 
-        viewModelScope.launch {
+        isGmailBackupCancellationRequested = false
+
+        var completed = 0
+        var lastTotal = 0
+        var lastUploaded = 0
+        var lastSkipped = 0
+        var lastFailed = 0
+        var activeProfileId: String? = null
+
+        activeGmailBackupJob = viewModelScope.launch {
 
             try {
                 updateStatus(
@@ -286,6 +308,16 @@ class HomeViewModel : ViewModel() {
                     resolveSelectedProfile(
                         context
                     ) ?: return@launch
+
+                activeProfileId = accountProfile.profileId
+
+                check(
+                    GmailBackupSession.begin(
+                        accountProfile.profileId
+                    )
+                ) {
+                    "A Gmail backup is already running."
+                }
 
                 val result =
                     GmailBackupManager().backup(
@@ -302,6 +334,12 @@ class HomeViewModel : ViewModel() {
                                 uploaded,
                                 skipped,
                                 failed ->
+
+                            completed = current
+                            lastTotal = total
+                            lastUploaded = uploaded
+                            lastSkipped = skipped
+                            lastFailed = failed
 
                             val calculatedProgress =
                                 if (total > 0) {
@@ -425,6 +463,16 @@ class HomeViewModel : ViewModel() {
                     )
                 }
 
+            } catch (cancellation: CancellationException) {
+                updateStatus(
+                    gmailCancellationSummary(
+                        checked = completed,
+                        total = lastTotal,
+                        uploaded = lastUploaded,
+                        skipped = lastSkipped,
+                        failed = lastFailed
+                    )
+                )
             } catch (error: Exception) {
                 handleGmailError(
                     error = error,
@@ -433,10 +481,46 @@ class HomeViewModel : ViewModel() {
                 )
 
             } finally {
+                activeProfileId?.let(
+                    GmailBackupSession::end
+                )
                 isGmailBackingUp = false
+                isGmailBackupCancellationRequested = false
+                activeGmailBackupJob = null
             }
         }
     }
+
+    fun cancelGmailBackup() {
+        val job = activeGmailBackupJob
+
+        if (job?.isActive != true) {
+            return
+        }
+
+        if (!isGmailBackupCancellationRequested) {
+            isGmailBackupCancellationRequested = true
+            updateStatus("Cancelling Gmail backup…")
+        }
+
+        job.cancel()
+    }
+
+    private fun gmailCancellationSummary(
+        checked: Int,
+        total: Int,
+        uploaded: Int,
+        skipped: Int,
+        failed: Int
+    ): String =
+        """
+        Gmail backup cancelled.
+
+        Conversations checked: ${String.format("%,d", checked)} of ${String.format("%,d", total)}
+        Uploaded or updated: ${String.format("%,d", uploaded)}
+        Unchanged: ${String.format("%,d", skipped)}
+        Failed: ${String.format("%,d", failed)}
+        """.trimIndent()
 
     private fun handleGmailError(
         error: Throwable,

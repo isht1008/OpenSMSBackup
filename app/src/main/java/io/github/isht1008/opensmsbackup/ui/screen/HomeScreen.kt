@@ -211,7 +211,8 @@ fun HomeScreen(
                     requestPermissionsAndRun(
                         PendingBackupAction.LOCAL
                     )
-                }
+                },
+                enabled = !backupInProgress
             )
 
             Spacer(
@@ -220,11 +221,7 @@ fun HomeScreen(
 
             PrimaryButton(
                 text = "Backup History",
-                onClick = {
-                    if (!backupInProgress) {
-                        onBackupHistoryClick()
-                    }
-                }
+                onClick = onBackupHistoryClick
             )
 
             Spacer(
@@ -239,8 +236,28 @@ fun HomeScreen(
                             context
                         )
                     }
-                }
+                },
+                enabled = !backupInProgress
             )
+
+            if (viewModel.isGmailBackingUp) {
+                Spacer(
+                    modifier = Modifier.height(16.dp)
+                )
+
+                PrimaryButton(
+                    text =
+                        if (
+                            viewModel
+                                .isGmailBackupCancellationRequested
+                        ) {
+                            "Cancelling Gmail Backup…"
+                        } else {
+                            "Cancel Gmail Backup"
+                        },
+                    onClick = viewModel::cancelGmailBackup
+                )
+            }
 
             Spacer(
                 modifier = Modifier.height(16.dp)
@@ -257,7 +274,8 @@ fun HomeScreen(
                     requestPermissionsAndRun(
                         PendingBackupAction.GMAIL
                     )
-                }
+                },
+                enabled = !backupInProgress
             )
 
             Spacer(
@@ -272,7 +290,8 @@ fun HomeScreen(
                             "Restore is not available yet."
                         )
                     }
-                }
+                },
+                enabled = !backupInProgress
             )
 
             Spacer(
@@ -281,11 +300,7 @@ fun HomeScreen(
 
             PrimaryButton(
                 text = "Settings",
-                onClick = {
-                    if (!backupInProgress) {
-                        onSettingsClick()
-                    }
-                }
+                onClick = onSettingsClick
             )
 
             if (backupInProgress) {

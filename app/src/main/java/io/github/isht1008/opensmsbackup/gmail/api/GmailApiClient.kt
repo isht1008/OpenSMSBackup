@@ -5,6 +5,7 @@ import com.google.api.services.gmail.Gmail
 import com.google.api.services.gmail.model.ListLabelsResponse
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 class GmailApiClient(
@@ -40,6 +41,8 @@ class GmailApiClient(
 
                 Result.success(response)
 
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (e: Exception) {
 
                 return@withContext Result.failure(e)
