@@ -1,82 +1,60 @@
-# OpenSMSBackup Development Instructions
+# OpenSMSBackup contributor instructions
 
-## Project
+OpenSMSBackup is a privacy-first Android SMS backup application written in Kotlin with Jetpack Compose. The package is `io.github.isht1008.opensmsbackup`, minimum SDK is 31, and the primary physical test device is a Samsung S21 FE.
 
-OpenSMSBackup is a privacy-first Android SMS backup application.
+## Non-negotiable safety
 
-- Language: Kotlin
-- UI: Jetpack Compose
-- Minimum Android SDK: 31
-- Package: io.github.isht1008.opensmsbackup
-- Primary test device: Samsung S21 FE
-- IDE: Android Studio
-- Current branch: feature/conversation-snapshot
+- Never modify or delete `.git` or `local.properties`.
+- Never commit or push unless the user explicitly requests it.
+- Never use destructive Git operations, including `git reset --hard`, `git clean -fd`, force-push, or destructive checkout commands.
+- Never uninstall the app while testing Room migrations. Upgrade the installed app in place.
+- Never delete Gmail or Google Drive data without explicit confirmation. Moving an obsolete Gmail snapshot to Trash is allowed only in the established, user-initiated snapshot replacement flow and only after the replacement upload succeeds.
+- Never log SMS bodies, addresses/contact details, OAuth tokens or secrets, Google account data, PAN information, or other personal data. Avoid including these values in user-visible diagnostics as well.
+- Preserve existing behavior unless an approved design replaces it. Use small, reviewable changes.
+- Inspect models, DAOs, migrations, schemas, and all call sites before changing persistence. Add explicit Room migrations; never use destructive fallback.
+- When requirements are ambiguous, ask for clarification instead of making architectural assumptions.
 
-## Current Gmail Backup Design
+## Current architecture contract
 
-- One Gmail email represents one Android SMS conversation.
-- Sent and received messages are stored together.
-- Gmail email contains readable HTML and plain-text fallback.
-- Restore-ready JSON is attached.
-- Previous conversation snapshot is moved to Trash only after the new snapshot uploads successfully.
-- Incremental state is tracked using Room and snapshot hashes.
-- Archive mode will be the default.
-- Mirror mode will be optional and must include deletion safeguards.
+- One Gmail email represents one Android SMS conversation; sent and received messages are combined.
+- Every email has readable HTML, a plain-text fallback, and an attached restore-oriented JSON snapshot.
+- Room stores account records and conversation snapshot hashes for incremental comparison.
+- Upload the new snapshot first. Only after success may the previous Gmail snapshot be moved to Trash. A Trash failure must preserve the new Room state and surface a warning.
+- Archive mode is the recommended default. Mirror mode is optional and must have deletion safeguards, previews, limits, confirmation, and recovery guidance.
+- Restore is deferred until the backup platform and all prerequisite backup features are stable.
 
-## Planned Backup Features Before Restore
+## Status vocabulary
 
-1. Multiple Google account profiles with independent settings.
-2. Gmail backup per account.
-3. Google Drive application-state/database backup.
-4. Disconnect and actual Google access revocation.
-5. Archive and mirror modes.
-6. Stable conversation identity.
-7. Gmail index reconstruction after app reinstall.
-8. Retry and resume.
-9. Backup Now for all changed conversations.
-10. Scheduled WorkManager backup.
-11. Near-real-time incoming SMS backup.
-12. HTML conversation export.
-13. Share/export through Android.
-14. Email exported conversation to a recipient.
-15. Large-conversation handling.
-16. Backup health dashboard.
+Documentation and plans must label work as **Implemented**, **Partially implemented**, **Planned**, or **Deferred**. Do not infer completion from the presence of a model, DAO, placeholder UI, or dependency.
 
-Do not begin SMS Restore until the backup features above are stable.
+## AI workflow
 
-## Safety Rules
+Before making code changes:
 
-- Never delete or modify the .git directory.
-- Never modify local.properties.
-- Never commit or push unless explicitly requested.
-- Never run git reset --hard, git clean -fd, force push, or destructive Git commands.
-- Never uninstall the Android app during database migration testing.
-- Never delete Gmail or Google Drive data without explicit confirmation.
-- Do not expose OAuth secrets, API keys, SMS content, PAN data, or personal data in logs.
-- Preserve existing functionality unless a requested design explicitly replaces it.
-- Make small, reviewable changes.
-- Inspect existing models, DAOs, migrations, and call sites before editing.
-- Add Room migrations instead of destructive migration.
-- Run the debug build after every coherent implementation stage.
-- Stop after repeated failures and explain the root cause rather than making speculative large changes.
+1. Read `AGENTS.md`.
+2. Read `PROJECT_CONTEXT.md`.
+3. Read `DESIGN_DECISIONS.md`.
+4. Read the relevant document under `docs/`.
+5. Inspect the existing implementation.
+6. Implement only the requested feature.
+7. Build the project.
+8. Show `git diff`.
+9. Do not commit unless requested.
 
-## Build
+## Branches
 
-Use Android Studio build or:
+- `main`: initial SMS reading/contact/conversation baseline.
+- `develop`: local JSON backup, history, and UI development line.
+- `feature/gmail-backup`: earlier per-message Gmail implementation.
+- `feature/conversation-snapshot`: current conversation-snapshot implementation line.
+- `docs/project-context`: documentation line, currently based on the conversation-snapshot tip.
 
+## Build and verification
+
+Preferred command from the repository root:
+
+```powershell
 .\gradlew :app:assembleDebug
+```
 
-JAVA_HOME may need to point to:
-
-C:\Program Files\Android\Android Studio\jbr
-
-## Verification
-
-Before completing a task:
-
-1. Run git status.
-2. Review git diff.
-3. Run the relevant build.
-4. Report modified and added files.
-5. Report tests performed and tests that still require a physical device.
-6. Do not commit unless explicitly requested.
+If Java is not found, set `JAVA_HOME` to `C:\Program Files\Android\Android Studio\jbr` for the shell, or build the `app` debug variant in Android Studio. Before finishing any change: run `git status`, review `git diff`, run the relevant tests and debug build, list changed files, and identify physical-device tests still required. Do not commit.
