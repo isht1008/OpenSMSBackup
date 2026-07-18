@@ -12,6 +12,9 @@ data class SmsEmail(
 
     val date: Long,
 
-    val headers: Map<String, String>
+    val headers: Map<String, String>,
 
+    val htmlBody: String? = null,
+
+    val attachments: List<EmailAttachment> = emptyList()
 )

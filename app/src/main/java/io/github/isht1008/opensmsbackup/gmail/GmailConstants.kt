@@ -4,6 +4,9 @@ object GmailConstants {
 
     const val LABEL_SMS = "SMS"
 
+    const val LABEL_SMS_CONVERSATIONS =
+        "SMS/Conversations"
+
     const val LABEL_SMS_INBOX = "SMS/Inbox"
 
     const val LABEL_SMS_SENT = "SMS/Sent"
@@ -11,5 +14,4 @@ object GmailConstants {
     const val LABEL_SMS_DRAFTS = "SMS/Drafts"
 
     const val LABEL_SMS_FAILED = "SMS/Failed"
-
 }

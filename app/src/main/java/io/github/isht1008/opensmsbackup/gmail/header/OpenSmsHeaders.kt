@@ -5,6 +5,9 @@ object OpenSmsHeaders {
     const val VERSION =
         "X-OpenSMSBackup-Version"
 
+    const val CONTENT_TYPE =
+        "X-OpenSMSBackup-Content-Type"
+
     const val SMS_ID =
         "X-SMS-ID"
 
@@ -23,7 +26,18 @@ object OpenSmsHeaders {
     const val FINGERPRINT =
         "X-Backup-Fingerprint"
 
+    const val SNAPSHOT_HASH =
+        "X-OpenSMSBackup-Snapshot-Hash"
+
+    const val MESSAGE_COUNT =
+        "X-OpenSMSBackup-Message-Count"
+
+    const val FIRST_MESSAGE_DATE =
+        "X-OpenSMSBackup-First-Message-Date"
+
+    const val LAST_MESSAGE_DATE =
+        "X-OpenSMSBackup-Last-Message-Date"
+
     const val ACCOUNT =
         "X-Backup-Account"
-
 }

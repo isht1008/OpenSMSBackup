@@ -1,0 +1,341 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "ba728ec225e406e851b85e3396e49a4e",
+    "entities": [
+      {
+        "tableName": "backup_accounts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `account_email` TEXT NOT NULL, `display_name` TEXT, `photo_url` TEXT, `drive_file_id` TEXT, `drive_revision_id` TEXT, `last_sync_time` INTEGER NOT NULL, `last_backup_time` INTEGER NOT NULL, `last_restore_time` INTEGER NOT NULL, `is_default` INTEGER NOT NULL, `created_time` INTEGER NOT NULL, `backup_enabled` INTEGER NOT NULL, `backup_label` TEXT NOT NULL, PRIMARY KEY(`account_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountEmail",
+            "columnName": "account_email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "display_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "photoUrl",
+            "columnName": "photo_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "driveFileId",
+            "columnName": "drive_file_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "driveRevisionId",
+            "columnName": "drive_revision_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastSyncTime",
+            "columnName": "last_sync_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastBackupTime",
+            "columnName": "last_backup_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastRestoreTime",
+            "columnName": "last_restore_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDefault",
+            "columnName": "is_default",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdTime",
+            "columnName": "created_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupEnabled",
+            "columnName": "backup_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupLabel",
+            "columnName": "backup_label",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_accounts_account_email",
+            "unique": true,
+            "columnNames": [
+              "account_email"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_backup_accounts_account_email` ON `${TABLE_NAME}` (`account_email`)"
+          }
+        ]
+      },
+      {
+        "tableName": "backup_messages",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `account_id` TEXT NOT NULL, `account_email` TEXT NOT NULL, `sms_id` INTEGER NOT NULL, `thread_id` INTEGER NOT NULL, `address` TEXT NOT NULL, `message_date` INTEGER NOT NULL, `message_type` INTEGER NOT NULL, `fingerprint` TEXT NOT NULL, `gmail_message_id` TEXT, `gmail_thread_id` TEXT, `backup_time` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountEmail",
+            "columnName": "account_email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "smsId",
+            "columnName": "sms_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "threadId",
+            "columnName": "thread_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageDate",
+            "columnName": "message_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageType",
+            "columnName": "message_type",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fingerprint",
+            "columnName": "fingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gmailMessageId",
+            "columnName": "gmail_message_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "gmailThreadId",
+            "columnName": "gmail_thread_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "backupTime",
+            "columnName": "backup_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_messages_account_id_fingerprint",
+            "unique": true,
+            "columnNames": [
+              "account_id",
+              "fingerprint"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_backup_messages_account_id_fingerprint` ON `${TABLE_NAME}` (`account_id`, `fingerprint`)"
+          },
+          {
+            "name": "index_backup_messages_account_id_sms_id",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "sms_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_messages_account_id_sms_id` ON `${TABLE_NAME}` (`account_id`, `sms_id`)"
+          },
+          {
+            "name": "index_backup_messages_thread_id",
+            "unique": false,
+            "columnNames": [
+              "thread_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_messages_thread_id` ON `${TABLE_NAME}` (`thread_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "conversation_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `account_id` TEXT NOT NULL, `account_email` TEXT NOT NULL, `android_thread_id` INTEGER NOT NULL, `address` TEXT NOT NULL, `contact_name` TEXT, `message_count` INTEGER NOT NULL, `snapshot_hash` TEXT NOT NULL, `gmail_message_id` TEXT NOT NULL, `gmail_thread_id` TEXT, `first_message_date` INTEGER NOT NULL, `last_message_date` INTEGER NOT NULL, `backup_time` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountEmail",
+            "columnName": "account_email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "androidThreadId",
+            "columnName": "android_thread_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contactName",
+            "columnName": "contact_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "messageCount",
+            "columnName": "message_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "snapshotHash",
+            "columnName": "snapshot_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gmailMessageId",
+            "columnName": "gmail_message_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gmailThreadId",
+            "columnName": "gmail_thread_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "firstMessageDate",
+            "columnName": "first_message_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastMessageDate",
+            "columnName": "last_message_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupTime",
+            "columnName": "backup_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_conversation_snapshots_account_id_android_thread_id",
+            "unique": true,
+            "columnNames": [
+              "account_id",
+              "android_thread_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_conversation_snapshots_account_id_android_thread_id` ON `${TABLE_NAME}` (`account_id`, `android_thread_id`)"
+          },
+          {
+            "name": "index_conversation_snapshots_account_email",
+            "unique": false,
+            "columnNames": [
+              "account_email"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_conversation_snapshots_account_email` ON `${TABLE_NAME}` (`account_email`)"
+          },
+          {
+            "name": "index_conversation_snapshots_android_thread_id",
+            "unique": false,
+            "columnNames": [
+              "android_thread_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_conversation_snapshots_android_thread_id` ON `${TABLE_NAME}` (`android_thread_id`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ba728ec225e406e851b85e3396e49a4e')"
+    ]
+  }
+}

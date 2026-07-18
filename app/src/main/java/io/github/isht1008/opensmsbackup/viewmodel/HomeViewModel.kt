@@ -54,85 +54,81 @@ class HomeViewModel : ViewModel() {
 
         isBackingUp = true
         progress = 0f
-
         updateStatus("Preparing backup...")
 
         viewModelScope.launch {
 
             try {
+                val result =
+                    withContext(Dispatchers.IO) {
+                        BackupManager().createBackup(
+                            context = context,
+                            includeContactNames =
+                                includeContactNames,
+                            onProgress = {
+                                    current,
+                                    total ->
 
-                val result = withContext(Dispatchers.IO) {
+                                val calculatedProgress =
+                                    if (total > 0) {
+                                        current.toFloat() /
+                                                total.toFloat()
+                                    } else {
+                                        0f
+                                    }
 
-                    BackupManager().createBackup(
-                        context = context,
-                        includeContactNames = includeContactNames,
-                        onProgress = { current, total ->
+                                progress =
+                                    calculatedProgress
 
-                            val calculatedProgress =
-                                if (total > 0) {
-                                    current.toFloat() / total.toFloat()
-                                } else {
-                                    0f
-                                }
+                                val percent =
+                                    (calculatedProgress * 100)
+                                        .toInt()
 
-                            progress = calculatedProgress
+                                updateStatus(
+                                    """
+                                    Reading SMS...
 
-                            val percent =
-                                (calculatedProgress * 100).toInt()
+                                    ${String.format("%,d", current)} of ${String.format("%,d", total)}
 
-                            updateStatus(
-                                """
-```
-
-Reading SMS...
-
-${String.format("%,d", current)} of ${String.format("%,d", total)}
-
-$percent%
-""".trimIndent()
-                            )
-                        }
-                    )
-                }
+                                    $percent%
+                                    """.trimIndent()
+                                )
+                            }
+                        )
+                    }
 
                 progress = 1f
 
                 updateStatus(
                     """
-```
+                    Backup completed
 
-✅ Backup completed
+                    Messages
+                    ${String.format("%,d", result.totalMessages)}
 
-📨 Messages
-${String.format("%,d", result.totalMessages)}
+                    Conversations
+                    ${String.format("%,d", result.totalConversations)}
 
-👥 Conversations
-${String.format("%,d", result.totalConversations)}
+                    Backup file
+                    ${result.backupFileName}
 
-📄 Backup File
-${result.backupFileName}
-
-📁 Location
-Documents/OpenSMSBackup
-""".trimIndent()
+                    Location
+                    Documents/OpenSMSBackup
+                    """.trimIndent()
                 )
 
             } catch (error: Exception) {
-
                 updateStatus(
                     """
-```
+                    Backup failed
 
-ERROR
+                    ${error.javaClass.simpleName}
 
-${error.javaClass.simpleName}
-
-${error.message ?: "Unknown error"}
-""".trimIndent()
+                    ${error.message ?: "Unknown error"}
+                    """.trimIndent()
                 )
 
             } finally {
-
                 isBackingUp = false
             }
         }
@@ -143,53 +139,45 @@ ${error.message ?: "Unknown error"}
     ) {
 
         viewModelScope.launch {
-
             updateStatus("Loading backups...")
 
             try {
-
-                val backups = withContext(Dispatchers.IO) {
-                    BackupHistoryRepository().getBackups(context)
-                }
+                val backups =
+                    withContext(Dispatchers.IO) {
+                        BackupHistoryRepository()
+                            .getBackups(context)
+                    }
 
                 if (backups.isEmpty()) {
-
                     updateStatus("No backups found.")
-
                 } else {
-
                     val latest = backups.first()
 
                     updateStatus(
                         """
-```
+                        Found ${backups.size} backup(s)
 
-Found ${backups.size} backup(s)
+                        Latest
+                        ${latest.displayName}
 
-Latest:
-${latest.displayName}
+                        Messages
+                        ${latest.messageCount}
 
-Messages:
-${latest.messageCount}
-
-Conversations:
-${latest.conversationCount}
-""".trimIndent()
+                        Conversations
+                        ${latest.conversationCount}
+                        """.trimIndent()
                     )
                 }
 
             } catch (error: Exception) {
-
                 updateStatus(
                     """
-```
+                    Failed to load backups
 
-Failed to load backups
+                    ${error.javaClass.simpleName}
 
-${error.javaClass.simpleName}
-
-${error.message ?: "Unknown error"}
-""".trimIndent()
+                    ${error.message ?: "Unknown error"}
+                    """.trimIndent()
                 )
             }
         }
@@ -204,39 +192,34 @@ ${error.message ?: "Unknown error"}
         }
 
         viewModelScope.launch {
-
             updateStatus("Signing in with Google...")
 
             val result =
-                GoogleSignInManager(context).signIn()
+                GoogleSignInManager(context)
+                    .signIn()
 
             result.onSuccess { email ->
-
                 withContext(Dispatchers.IO) {
-                    GmailAccountManager(context).saveAccount(email)
+                    GmailAccountManager(context)
+                        .saveAccount(email)
                 }
 
                 updateStatus(
                     """
-```
+                    Google account connected
 
-Google account connected
-
-$email
-""".trimIndent()
+                    $email
+                    """.trimIndent()
                 )
             }
 
             result.onFailure { error ->
-
                 updateStatus(
                     """
-```
+                    Google Sign In failed
 
-Google Sign In Failed
-
-${error.message ?: "Unknown error"}
-""".trimIndent()
+                    ${error.message ?: "Unknown error"}
+                    """.trimIndent()
                 )
             }
         }
@@ -251,49 +234,47 @@ ${error.message ?: "Unknown error"}
         }
 
         viewModelScope.launch {
-
             updateStatus("Connecting to Gmail...")
 
             try {
-
                 val account =
-                    GmailAccountManager(context).getAccount()
+                    GmailAccountManager(context)
+                        .getAccount()
 
                 if (account.isNullOrBlank()) {
-
-                    updateStatus("No Gmail account connected.")
+                    updateStatus(
+                        "No Gmail account connected."
+                    )
                     return@launch
                 }
 
                 val result =
-                    GmailApiClient(context).listLabels(account)
+                    GmailApiClient(context)
+                        .listLabels(account)
 
                 result.onSuccess { response ->
-
                     updateStatus(
                         """
-```
+                        Gmail API success
 
-Gmail API Success
-
-Labels found: ${response.labels?.size ?: 0}
-""".trimIndent()
+                        Labels found: ${response.labels?.size ?: 0}
+                        """.trimIndent()
                     )
                 }
 
                 result.onFailure { error ->
-
                     handleGmailError(
                         error = error,
-                        failureTitle = "Gmail API Failed"
+                        failureTitle =
+                            "Gmail API failed"
                     )
                 }
 
             } catch (error: Exception) {
-
                 handleGmailError(
                     error = error,
-                    failureTitle = "Gmail API Failed"
+                    failureTitle =
+                        "Gmail API failed"
                 )
             }
         }
@@ -302,7 +283,7 @@ Labels found: ${response.labels?.size ?: 0}
     fun backupSmsToGmail(
         context: Context,
         includeContactNames: Boolean,
-        maxNewMessages: Int? = 25
+        maxConversations: Int? = 3
     ) {
 
         if (isGmailBackingUp || isBackingUp) {
@@ -315,24 +296,22 @@ Labels found: ${response.labels?.size ?: 0}
         viewModelScope.launch {
 
             try {
-
-                updateStatus("Preparing Gmail backup...")
+                updateStatus(
+                    "Preparing conversation backup..."
+                )
 
                 val accountEmail =
-                    GmailAccountManager(context).getAccount()
+                    GmailAccountManager(context)
+                        .getAccount()
 
                 if (accountEmail.isNullOrBlank()) {
-
                     updateStatus(
                         """
-```
+                        No Gmail account connected.
 
-No Gmail account connected.
-
-Tap Sign in with Google first.
-""".trimIndent()
+                        Tap Sign in with Google first.
+                        """.trimIndent()
                     )
-
                     return@launch
                 }
 
@@ -340,8 +319,10 @@ Tap Sign in with Google first.
                     GmailBackupManager().backup(
                         context = context,
                         accountEmail = accountEmail,
-                        includeContactNames = includeContactNames,
-                        maxNewMessages = maxNewMessages,
+                        includeContactNames =
+                            includeContactNames,
+                        maxConversations =
+                            maxConversations,
                         onProgress = {
                                 current,
                                 total,
@@ -351,7 +332,8 @@ Tap Sign in with Google first.
 
                             val calculatedProgress =
                                 if (total > 0) {
-                                    current.toFloat() / total.toFloat()
+                                    current.toFloat() /
+                                            total.toFloat()
                                 } else {
                                     0f
                                 }
@@ -360,28 +342,27 @@ Tap Sign in with Google first.
                                 calculatedProgress
 
                             val percent =
-                                (calculatedProgress * 100).toInt()
+                                (calculatedProgress * 100)
+                                    .toInt()
 
                             updateStatus(
                                 """
-```
+                                Gmail conversation backup
 
-Gmail backup in progress
+                                Conversations checked
+                                ${String.format("%,d", current)} of ${String.format("%,d", total)}
 
-Checked
-${String.format("%,d", current)} of ${String.format("%,d", total)}
+                                Uploaded or updated
+                                ${String.format("%,d", uploaded)}
 
-Uploaded
-${String.format("%,d", uploaded)}
+                                Unchanged
+                                ${String.format("%,d", skipped)}
 
-Skipped
-${String.format("%,d", skipped)}
+                                Failed
+                                ${String.format("%,d", failed)}
 
-Failed
-${String.format("%,d", failed)}
-
-$percent%
-""".trimIndent()
+                                $percent%
+                                """.trimIndent()
                             )
                         }
                     )
@@ -390,13 +371,17 @@ $percent%
 
                     gmailBackupProgress =
                         if (
-                            summary.totalMessages > 0 &&
+                            summary.totalConversations > 0 &&
                             !summary.stoppedAtSafetyLimit
                         ) {
                             1f
-                        } else if (summary.totalMessages > 0) {
-                            summary.checkedMessages.toFloat() /
-                                    summary.totalMessages.toFloat()
+                        } else if (
+                            summary.totalConversations > 0
+                        ) {
+                            summary.checkedConversations
+                                .toFloat() /
+                                    summary.totalConversations
+                                        .toFloat()
                         } else {
                             0f
                         }
@@ -404,12 +389,10 @@ $percent%
                     val safetyMessage =
                         if (summary.stoppedAtSafetyLimit) {
                             """
-```
 
-Safety test limit reached.
-
-Only ${String.format("%,d", summary.uploadedMessages)} new messages were uploaded.
-""".trimIndent()
+                            Test limit reached.
+                            Only ${String.format("%,d", summary.uploadedConversations)} changed conversations were uploaded.
+                            """.trimIndent()
                         } else {
                             ""
                         }
@@ -417,59 +400,66 @@ Only ${String.format("%,d", summary.uploadedMessages)} new messages were uploade
                     val failureDetails =
                         if (summary.failures.isNotEmpty()) {
                             """
-```
 
-First errors:
+                            First errors
+                            ${summary.failures.joinToString("\n")}
+                            """.trimIndent()
+                        } else {
+                            ""
+                        }
 
-${summary.failures.joinToString("\n")}
-""".trimIndent()
+                    val warningDetails =
+                        if (summary.warnings.isNotEmpty()) {
+                            """
+
+                            Warnings
+                            ${summary.warnings.joinToString("\n")}
+                            """.trimIndent()
                         } else {
                             ""
                         }
 
                     updateStatus(
                         """
-```
+                        Gmail conversation backup completed
 
-Gmail backup completed
+                        SMS on device
+                        ${String.format("%,d", summary.totalMessages)}
 
-Total SMS on device
-${String.format("%,d", summary.totalMessages)}
+                        Conversations on device
+                        ${String.format("%,d", summary.totalConversations)}
 
-Checked
-${String.format("%,d", summary.checkedMessages)}
+                        Conversations checked
+                        ${String.format("%,d", summary.checkedConversations)}
 
-Uploaded
-${String.format("%,d", summary.uploadedMessages)}
+                        Uploaded or updated
+                        ${String.format("%,d", summary.uploadedConversations)}
 
-Skipped
-${String.format("%,d", summary.skippedMessages)}
+                        Unchanged
+                        ${String.format("%,d", summary.skippedConversations)}
 
-Failed
-${String.format("%,d", summary.failedMessages)}
-$safetyMessage
-$failureDetails
-""".trimIndent()
+                        Failed
+                        ${String.format("%,d", summary.failedConversations)}$safetyMessage$failureDetails$warningDetails
+                        """.trimIndent()
                     )
                 }
 
                 result.onFailure { error ->
-
                     handleGmailError(
                         error = error,
-                        failureTitle = "Gmail backup failed"
+                        failureTitle =
+                            "Gmail conversation backup failed"
                     )
                 }
 
             } catch (error: Exception) {
-
                 handleGmailError(
                     error = error,
-                    failureTitle = "Gmail backup failed"
+                    failureTitle =
+                        "Gmail conversation backup failed"
                 )
 
             } finally {
-
                 isGmailBackingUp = false
             }
         }
@@ -484,7 +474,6 @@ $failureDetails
             findRecoverableAuthError(error)
 
         if (recoverableError != null) {
-
             updateStatus(
                 "Opening Gmail permission screen..."
             )
@@ -492,21 +481,18 @@ $failureDetails
             onGmailConsentRequired?.invoke(
                 recoverableError.intent
             )
-
             return
         }
 
         updateStatus(
             """
-```
+            $failureTitle
 
-$failureTitle
+            ${error.javaClass.name}
 
-${error.javaClass.name}
-
-Message:
-${error.message ?: "Unknown error"}
-""".trimIndent()
+            Message
+            ${error.message ?: "Unknown error"}
+            """.trimIndent()
         )
     }
 
@@ -517,7 +503,6 @@ ${error.message ?: "Unknown error"}
         var currentError: Throwable? = error
 
         while (currentError != null) {
-
             if (
                 currentError is
                         UserRecoverableAuthIOException
@@ -530,5 +515,4 @@ ${error.message ?: "Unknown error"}
 
         return null
     }
-
 }

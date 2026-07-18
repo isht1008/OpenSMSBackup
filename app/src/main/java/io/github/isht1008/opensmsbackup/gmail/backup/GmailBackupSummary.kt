@@ -4,15 +4,19 @@ data class GmailBackupSummary(
 
     val totalMessages: Int,
 
-    val checkedMessages: Int,
+    val totalConversations: Int,
 
-    val uploadedMessages: Int,
+    val checkedConversations: Int,
 
-    val skippedMessages: Int,
+    val uploadedConversations: Int,
 
-    val failedMessages: Int,
+    val skippedConversations: Int,
+
+    val failedConversations: Int,
 
     val stoppedAtSafetyLimit: Boolean,
 
-    val failures: List<String>
+    val failures: List<String>,
+
+    val warnings: List<String>
 )

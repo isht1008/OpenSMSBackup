@@ -4,6 +4,8 @@ data class GmailLabels(
 
     val sms: String,
 
+    val conversations: String,
+
     val inbox: String,
 
     val sent: String,
@@ -11,5 +13,4 @@ data class GmailLabels(
     val drafts: String,
 
     val failed: String
-
 )

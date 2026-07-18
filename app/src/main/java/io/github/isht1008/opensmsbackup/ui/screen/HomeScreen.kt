@@ -82,7 +82,7 @@ fun HomeScreen(
                 viewModel.backupSmsToGmail(
                     context = context,
                     includeContactNames = hasContactsPermission(),
-                    maxNewMessages = 25
+                    maxConversations = 3
                 )
             }
 
@@ -258,7 +258,7 @@ fun HomeScreen(
                     if (viewModel.isGmailBackingUp) {
                         "Backing up to Gmail..."
                     } else {
-                        "Test Gmail Backup - 25 Messages"
+                        "Test Gmail Backup - 3 Conversations"
                     },
                 onClick = {
                     requestPermissionsAndRun(
@@ -309,7 +309,7 @@ fun HomeScreen(
                 Text(
                     text =
                         if (viewModel.isGmailBackingUp) {
-                            "Uploading SMS to Gmail..."
+                            "Uploading conversations to Gmail..."
                         } else {
                             "Creating local backup..."
                         }
@@ -340,7 +340,7 @@ fun HomeScreen(
             )
 
             Text(
-                text = "Version 0.2.0"
+                text = "Version 0.3.0"
             )
         }
     }

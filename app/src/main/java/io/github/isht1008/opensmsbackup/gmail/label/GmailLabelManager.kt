@@ -17,7 +17,6 @@ class GmailLabelManager(
                 .execute()
 
         return response.labels ?: emptyList()
-
     }
 
     private fun findLabel(
@@ -25,12 +24,9 @@ class GmailLabelManager(
         name: String
     ): Label? {
 
-        return labels.firstOrNull {
-
-            it.name == name
-
+        return labels.firstOrNull { label ->
+            label.name == name
         }
-
     }
 
     private fun createLabel(
@@ -39,20 +35,15 @@ class GmailLabelManager(
 
         val label =
             Label().apply {
-
                 this.name = name
-
                 labelListVisibility = "labelShow"
-
                 messageListVisibility = "show"
-
             }
 
         return gmail.users()
             .labels()
             .create("me", label)
             .execute()
-
     }
 
     private fun getOrCreateLabel(
@@ -62,25 +53,18 @@ class GmailLabelManager(
 
         val existing =
             findLabel(
-                labels,
-                name
+                labels = labels,
+                name = name
             )
 
         if (existing != null) {
             return existing
         }
 
-        val created =
-            createLabel(
-                name
-            )
-
-        labels.add(
-            created
-        )
-
-        return created
-
+        return createLabel(name)
+            .also { created ->
+                labels.add(created)
+            }
     }
 
     suspend fun ensureLabels(): GmailLabels {
@@ -93,6 +77,12 @@ class GmailLabelManager(
             getOrCreateLabel(
                 labels,
                 GmailConstants.LABEL_SMS
+            )
+
+        val conversations =
+            getOrCreateLabel(
+                labels,
+                GmailConstants.LABEL_SMS_CONVERSATIONS
             )
 
         val inbox =
@@ -120,19 +110,13 @@ class GmailLabelManager(
             )
 
         return GmailLabels(
-
-            sms = sms.id,
-
-            inbox = inbox.id,
-
-            sent = sent.id,
-
-            drafts = drafts.id,
-
-            failed = failed.id
-
+            sms = requireNotNull(sms.id),
+            conversations =
+                requireNotNull(conversations.id),
+            inbox = requireNotNull(inbox.id),
+            sent = requireNotNull(sent.id),
+            drafts = requireNotNull(drafts.id),
+            failed = requireNotNull(failed.id)
         )
-
     }
-
 }

@@ -1,12 +1,11 @@
 package io.github.isht1008.opensmsbackup.gmail.backup
 
 import android.content.Context
-import io.github.isht1008.opensmsbackup.backup.fingerprint.SmsFingerprintGenerator
 import io.github.isht1008.opensmsbackup.database.BackupAccountEntity
-import io.github.isht1008.opensmsbackup.database.BackupMessageEntity
+import io.github.isht1008.opensmsbackup.database.ConversationSnapshotEntity
 import io.github.isht1008.opensmsbackup.database.DatabaseProvider
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
-import io.github.isht1008.opensmsbackup.gmail.mime.MimeMessageBuilder
+import io.github.isht1008.opensmsbackup.gmail.mime.ConversationMimeMessageBuilder
 import io.github.isht1008.opensmsbackup.gmail.upload.GmailUploader
 import io.github.isht1008.opensmsbackup.sms.SmsRepository
 import kotlinx.coroutines.Dispatchers
@@ -18,14 +17,17 @@ class GmailBackupManager {
     private val smsRepository =
         SmsRepository()
 
+    private val conversationBuilder =
+        SmsConversationSnapshotBuilder()
+
     private val mimeMessageBuilder =
-        MimeMessageBuilder()
+        ConversationMimeMessageBuilder()
 
     suspend fun backup(
         context: Context,
         accountEmail: String,
         includeContactNames: Boolean,
-        maxNewMessages: Int? = null,
+        maxConversations: Int? = null,
         onProgress: (
             current: Int,
             total: Int,
@@ -38,21 +40,24 @@ class GmailBackupManager {
         return withContext(Dispatchers.IO) {
 
             try {
-
                 require(accountEmail.isNotBlank()) {
                     "Gmail account email cannot be blank."
+                }
+
+                require(
+                    maxConversations == null ||
+                            maxConversations > 0
+                ) {
+                    "Conversation limit must be greater than zero."
                 }
 
                 val trimmedEmail =
                     accountEmail.trim()
 
-                val normalizedEmail =
+                val accountId =
                     trimmedEmail.lowercase(
                         Locale.ROOT
                     )
-
-                val accountId =
-                    normalizedEmail
 
                 val database =
                     DatabaseProvider.getDatabase(
@@ -62,8 +67,8 @@ class GmailBackupManager {
                 val accountDao =
                     database.backupAccountDao()
 
-                val messageDao =
-                    database.backupMessageDao()
+                val snapshotDao =
+                    database.conversationSnapshotDao()
 
                 val existingAccount =
                     accountDao.findById(
@@ -73,36 +78,28 @@ class GmailBackupManager {
                 accountDao.insert(
                     existingAccount
                         ?.copy(
-                            accountEmail =
-                                trimmedEmail,
+                            accountEmail = trimmedEmail,
                             backupEnabled = true
                         )
                         ?: BackupAccountEntity(
                             accountId = accountId,
-                            accountEmail =
-                                trimmedEmail,
+                            accountEmail = trimmedEmail,
                             isDefault = true,
                             backupEnabled = true
                         )
                 )
 
                 val messages =
-                    smsRepository
-                        .getSmsMessages(
-                            context = context,
-                            includeContactNames =
-                                includeContactNames
-                        )
-                        .sortedWith(
-                            compareBy(
-                                { message ->
-                                    message.date
-                                },
-                                { message ->
-                                    message.id
-                                }
-                            )
-                        )
+                    smsRepository.getSmsMessages(
+                        context = context,
+                        includeContactNames =
+                            includeContactNames
+                    )
+
+                val conversations =
+                    conversationBuilder.build(
+                        messages
+                    )
 
                 val gmailService =
                     GmailApiClient(context)
@@ -119,73 +116,48 @@ class GmailBackupManager {
                 var uploaded = 0
                 var skipped = 0
                 var failed = 0
-
                 var safetyLimitReached = false
 
                 val failures =
                     mutableListOf<String>()
 
-                val activeGmailThreads =
-                    mutableMapOf<Long, String>()
+                val warnings =
+                    mutableListOf<String>()
 
-                val activeParentMessageIds =
-                    mutableMapOf<Long, String>()
-
-                for (sms in messages) {
+                for (conversation in conversations) {
 
                     if (
-                        maxNewMessages != null &&
-                        uploaded >= maxNewMessages
+                        maxConversations != null &&
+                        uploaded >= maxConversations
                     ) {
-
                         safetyLimitReached = true
                         break
                     }
 
                     checked++
 
-                    val fingerprint =
-                        SmsFingerprintGenerator.generate(
-                            address = sms.address,
-                            body = sms.body,
-                            date = sms.date,
-                            type = sms.type
+                    val snapshotHash =
+                        ConversationSnapshotHashGenerator
+                            .generate(
+                                conversation
+                            )
+
+                    val existingSnapshot =
+                        snapshotDao.find(
+                            accountId = accountId,
+                            androidThreadId =
+                                conversation.threadId
                         )
 
-                    val existing =
-                        messageDao.findByFingerprint(
-                            accountEmail =
-                                trimmedEmail,
-                            fingerprint =
-                                fingerprint
-                        )
-
-                    if (existing != null) {
-
-                        existing.gmailThreadId
-                            ?.takeIf {
-                                it.isNotBlank()
-                            }
-                            ?.let { gmailThreadId ->
-
-                                activeGmailThreads[
-                                    sms.threadId
-                                ] = gmailThreadId
-                            }
-
-                        activeParentMessageIds[
-                            sms.threadId
-                        ] =
-                            MimeMessageBuilder
-                                .messageIdForFingerprint(
-                                    existing.fingerprint
-                                )
-
+                    if (
+                        existingSnapshot?.snapshotHash ==
+                        snapshotHash
+                    ) {
                         skipped++
 
                         onProgress(
                             checked,
-                            messages.size,
+                            conversations.size,
                             uploaded,
                             skipped,
                             failed
@@ -194,158 +166,111 @@ class GmailBackupManager {
                         continue
                     }
 
-                    val previousThreadMessage =
-                        if (
-                            activeGmailThreads.containsKey(
-                                sms.threadId
-                            )
-                        ) {
-                            null
-                        } else {
-                            messageDao
-                                .findLatestThreadMessage(
-                                    accountId =
-                                        accountId,
-                                    androidThreadId =
-                                        sms.threadId
-                                )
-                        }
-
-                    val gmailThreadId =
-                        activeGmailThreads[
-                            sms.threadId
-                        ]
-                            ?: previousThreadMessage
-                                ?.gmailThreadId
-
-                    if (!gmailThreadId.isNullOrBlank()) {
-
-                        activeGmailThreads[
-                            sms.threadId
-                        ] = gmailThreadId
-                    }
-
-                    val parentMessageId =
-                        activeParentMessageIds[
-                            sms.threadId
-                        ]
-                            ?: previousThreadMessage
-                                ?.fingerprint
-                                ?.let { previousFingerprint ->
-
-                                    MimeMessageBuilder
-                                        .messageIdForFingerprint(
-                                            previousFingerprint
-                                        )
-                                }
-
-                    val smsEmail =
+                    val email =
                         mimeMessageBuilder.build(
-                            sms = sms,
-                            accountEmail =
-                                trimmedEmail,
-                            fingerprint =
-                                fingerprint,
-                            parentMessageId =
-                                parentMessageId
+                            conversation = conversation,
+                            accountEmail = trimmedEmail,
+                            snapshotHash = snapshotHash
                         )
 
                     val uploadResult =
-                        uploader.upload(
-                            email = smsEmail,
-                            smsType = sms.smsType,
-                            gmailThreadId =
-                                gmailThreadId
+                        uploader.uploadConversation(
+                            email
                         )
 
                     uploadResult
                         .onSuccess { gmailResult ->
 
-                            val uploadedThreadId =
-                                requireNotNull(
-                                    gmailResult.threadId
-                                ) {
-                                    "Gmail did not return a thread ID."
-                                }
-
-                            val insertedId =
-                                messageDao.insert(
-                                    BackupMessageEntity(
-                                        accountId =
-                                            accountId,
-                                        accountEmail =
-                                            trimmedEmail,
-                                        smsId =
-                                            sms.id,
-                                        threadId =
-                                            sms.threadId,
-                                        address =
-                                            sms.address.orEmpty(),
-                                        messageDate =
-                                            sms.date,
-                                        messageType =
-                                            sms.type,
-                                        fingerprint =
-                                            fingerprint,
-                                        gmailMessageId =
-                                            gmailResult.messageId,
-                                        gmailThreadId =
-                                            uploadedThreadId
-                                    )
+                            snapshotDao.insert(
+                                ConversationSnapshotEntity(
+                                    id =
+                                        existingSnapshot?.id
+                                            ?: 0L,
+                                    accountId = accountId,
+                                    accountEmail =
+                                        trimmedEmail,
+                                    androidThreadId =
+                                        conversation.threadId,
+                                    address =
+                                        conversation.address
+                                            .orEmpty(),
+                                    contactName =
+                                        conversation.contactName,
+                                    messageCount =
+                                        conversation.messageCount,
+                                    snapshotHash =
+                                        snapshotHash,
+                                    gmailMessageId =
+                                        gmailResult.messageId,
+                                    gmailThreadId =
+                                        gmailResult.threadId,
+                                    firstMessageDate =
+                                        conversation.firstMessageDate,
+                                    lastMessageDate =
+                                        conversation.lastMessageDate
                                 )
+                            )
 
-                            if (insertedId == -1L) {
+                            uploaded++
 
-                                skipped++
+                            val oldMessageId =
+                                existingSnapshot
+                                    ?.gmailMessageId
+                                    ?.takeIf { messageId ->
+                                        messageId.isNotBlank() &&
+                                                messageId !=
+                                                gmailResult.messageId
+                                    }
 
-                            } else {
+                            if (oldMessageId != null) {
+                                uploader.trashMessage(
+                                    oldMessageId
+                                ).onFailure { error ->
 
-                                uploaded++
+                                    if (warnings.size < 20) {
+                                        warnings.add(
+                                            buildString {
+                                                append(
+                                                    "Thread ${conversation.threadId}: new snapshot uploaded, but the previous snapshot could not be moved to Trash"
+                                                )
 
-                                activeGmailThreads[
-                                    sms.threadId
-                                ] =
-                                    uploadedThreadId
-
-                                activeParentMessageIds[
-                                    sms.threadId
-                                ] =
-                                    MimeMessageBuilder
-                                        .messageIdForFingerprint(
-                                            fingerprint
+                                                error.message
+                                                    ?.takeIf { message ->
+                                                        message.isNotBlank()
+                                                    }
+                                                    ?.let { message ->
+                                                        append(" - ")
+                                                        append(message)
+                                                    }
+                                            }
                                         )
+                                    }
+                                }
                             }
                         }
                         .onFailure { error ->
-
                             failed++
 
                             if (failures.size < 20) {
-
                                 failures.add(
                                     buildString {
-
                                         append(
-                                            "SMS ID "
+                                            "Thread ${conversation.threadId}"
                                         )
 
-                                        append(
-                                            sms.id
-                                        )
+                                        conversation.address
+                                            ?.takeIf { address ->
+                                                address.isNotBlank()
+                                            }
+                                            ?.let { address ->
+                                                append(" ($address)")
+                                            }
 
+                                        append(": ")
                                         append(
-                                            ": "
+                                            error.javaClass.simpleName
                                         )
-
-                                        append(
-                                            error.javaClass
-                                                .simpleName
-                                        )
-
-                                        append(
-                                            " - "
-                                        )
-
+                                        append(" - ")
                                         append(
                                             error.message
                                                 ?: "Unknown error"
@@ -357,7 +282,7 @@ class GmailBackupManager {
 
                     onProgress(
                         checked,
-                        messages.size,
+                        conversations.size,
                         uploaded,
                         skipped,
                         failed
@@ -368,50 +293,38 @@ class GmailBackupManager {
                     System.currentTimeMillis()
 
                 accountDao.insert(
-                    accountDao
-                        .findById(accountId)
+                    accountDao.findById(accountId)
                         ?.copy(
                             lastBackupTime = now,
                             lastSyncTime = now
                         )
                         ?: BackupAccountEntity(
-                            accountId =
-                                accountId,
-                            accountEmail =
-                                trimmedEmail,
-                            lastBackupTime =
-                                now,
-                            lastSyncTime =
-                                now,
-                            isDefault =
-                                true
+                            accountId = accountId,
+                            accountEmail = trimmedEmail,
+                            lastBackupTime = now,
+                            lastSyncTime = now,
+                            isDefault = true
                         )
                 )
 
                 Result.success(
                     GmailBackupSummary(
-                        totalMessages =
-                            messages.size,
-                        checkedMessages =
-                            checked,
-                        uploadedMessages =
-                            uploaded,
-                        skippedMessages =
-                            skipped,
-                        failedMessages =
-                            failed,
+                        totalMessages = messages.size,
+                        totalConversations =
+                            conversations.size,
+                        checkedConversations = checked,
+                        uploadedConversations = uploaded,
+                        skippedConversations = skipped,
+                        failedConversations = failed,
                         stoppedAtSafetyLimit =
                             safetyLimitReached,
-                        failures =
-                            failures
+                        failures = failures,
+                        warnings = warnings
                     )
                 )
 
             } catch (error: Exception) {
-
-                Result.failure(
-                    error
-                )
+                Result.failure(error)
             }
         }
     }

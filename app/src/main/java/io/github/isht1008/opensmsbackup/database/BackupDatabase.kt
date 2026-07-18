@@ -6,9 +6,10 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         BackupAccountEntity::class,
-        BackupMessageEntity::class
+        BackupMessageEntity::class,
+        ConversationSnapshotEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class BackupDatabase : RoomDatabase() {
@@ -16,4 +17,6 @@ abstract class BackupDatabase : RoomDatabase() {
     abstract fun backupAccountDao(): BackupAccountDao
 
     abstract fun backupMessageDao(): BackupMessageDao
+
+    abstract fun conversationSnapshotDao(): ConversationSnapshotDao
 }

@@ -6,7 +6,6 @@ import io.github.isht1008.opensmsbackup.gmail.label.GmailLabelManager
 import io.github.isht1008.opensmsbackup.gmail.label.GmailLabels
 import io.github.isht1008.opensmsbackup.gmail.mime.GmailMessageEncoder
 import io.github.isht1008.opensmsbackup.gmail.model.SmsEmail
-import io.github.isht1008.opensmsbackup.sms.SmsType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -21,41 +20,29 @@ class GmailUploader(
     private var cachedLabels: GmailLabels? =
         null
 
-    suspend fun upload(
-        email: SmsEmail,
-        smsType: SmsType,
-        gmailThreadId: String?
+    suspend fun uploadConversation(
+        email: SmsEmail
     ): Result<GmailUploadResult> {
 
         return withContext(Dispatchers.IO) {
 
             try {
-
                 val labels =
                     getLabels()
 
                 val labelIds =
-                    buildLabelIds(
-                        labels = labels,
-                        smsType = smsType
-                    )
+                    listOf(
+                        labels.sms,
+                        labels.conversations
+                    ).distinct()
 
                 val message =
                     Message().apply {
-
                         raw =
                             messageEncoder.encode(
-                                email = email
+                                email
                             )
-
-                        this.labelIds =
-                            labelIds
-
-                        if (!gmailThreadId.isNullOrBlank()) {
-
-                            threadId =
-                                gmailThreadId
-                        }
+                        this.labelIds = labelIds
                     }
 
                 val uploaded =
@@ -70,35 +57,47 @@ class GmailUploader(
                         )
                         .execute()
 
-                val messageId =
-                    requireNotNull(
-                        uploaded.id
-                    ) {
-                        "Gmail did not return a message ID."
-                    }
-
-                val uploadedThreadId =
-                    requireNotNull(
-                        uploaded.threadId
-                    ) {
-                        "Gmail did not return a thread ID."
-                    }
-
                 Result.success(
                     GmailUploadResult(
-                        messageId = messageId,
-                        threadId = uploadedThreadId,
+                        messageId =
+                            requireNotNull(uploaded.id) {
+                                "Gmail did not return a message ID."
+                            },
+                        threadId = uploaded.threadId,
                         labelIds =
-                            uploaded.labelIds
-                                ?: labelIds
+                            uploaded.labelIds ?: labelIds
                     )
                 )
 
             } catch (error: Exception) {
+                Result.failure(error)
+            }
+        }
+    }
 
-                Result.failure(
-                    error
-                )
+    suspend fun trashMessage(
+        gmailMessageId: String
+    ): Result<Unit> {
+
+        return withContext(Dispatchers.IO) {
+
+            try {
+                require(gmailMessageId.isNotBlank()) {
+                    "Gmail message ID cannot be blank."
+                }
+
+                gmail.users()
+                    .messages()
+                    .trash(
+                        "me",
+                        gmailMessageId
+                    )
+                    .execute()
+
+                Result.success(Unit)
+
+            } catch (error: Exception) {
+                Result.failure(error)
             }
         }
     }
@@ -115,41 +114,7 @@ class GmailUploader(
         return labelManager
             .ensureLabels()
             .also { labels ->
-
-                cachedLabels =
-                    labels
+                cachedLabels = labels
             }
     }
-
-    private fun buildLabelIds(
-        labels: GmailLabels,
-        smsType: SmsType
-    ): List<String> {
-
-        val directionalLabel =
-            when (smsType) {
-
-                SmsType.RECEIVED ->
-                    labels.inbox
-
-                SmsType.SENT ->
-                    labels.sent
-
-                SmsType.DRAFT ->
-                    labels.drafts
-
-                SmsType.OUTBOX,
-                SmsType.FAILED,
-                SmsType.QUEUED,
-                SmsType.ALL,
-                SmsType.UNKNOWN ->
-                    labels.failed
-            }
-
-        return listOf(
-            labels.sms,
-            directionalLabel
-        ).distinct()
-    }
-
 }
