@@ -3,6 +3,7 @@ package io.github.isht1008.opensmsbackup.gmail.account
 import android.content.Context
 import io.github.isht1008.opensmsbackup.gmail.auth.GmailAuthorizationManager
 import io.github.isht1008.opensmsbackup.gmail.auth.GoogleSignInManager
+import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -33,6 +34,9 @@ class GmailAccountCoordinator(
 
     suspend fun connectAccount(): Result<String> {
 
+        var preparedProfile:
+                AccountProfileEntity? = null
+
         return try {
 
             val email =
@@ -40,22 +44,37 @@ class GmailAccountCoordinator(
                     .signIn()
                     .getOrThrow()
 
+            val profile =
+                accountManager
+                    .prepareAccountProfile(
+                        email
+                    )
+
+            preparedProfile = profile
 
             val authorizationResult =
-                authorizeGmail()
+                authorizeGmail(
+                    profile
+                )
 
 
             if (authorizationResult) {
 
-                accountManager.saveAccount(
-                    email
-                )
+                accountManager
+                    .selectAccountProfile(
+                        profile
+                    )
 
                 Result.success(
-                    email
+                    profile.accountEmail
                 )
 
             } else {
+
+                accountManager
+                    .markAuthorizationRequired(
+                        profile
+                    )
 
                 Result.failure(
                     Exception(
@@ -67,18 +86,31 @@ class GmailAccountCoordinator(
 
         } catch (e: Exception) {
 
+            preparedProfile?.let { profile ->
+                runCatching {
+                    accountManager
+                        .markAuthorizationRequired(
+                            profile
+                        )
+                }
+            }
+
             Result.failure(e)
 
         }
     }
 
 
-    private suspend fun authorizeGmail(): Boolean {
+    private suspend fun authorizeGmail(
+        profile: AccountProfileEntity
+    ): Boolean {
 
         return suspendCancellableCoroutine { continuation ->
 
 
             gmailAuthorizationManager.authorize(
+
+                profile = profile,
 
                 callback = {
 

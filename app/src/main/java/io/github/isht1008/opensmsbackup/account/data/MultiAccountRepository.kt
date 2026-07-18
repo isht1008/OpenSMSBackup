@@ -184,6 +184,25 @@ class MultiAccountRepository(
         selectedProfileStore.clearSelection()
     }
 
+    suspend fun updateConnectionState(
+        profileId: String,
+        connectionState: String
+    ) {
+        requireNotNull(
+            accountDao.findProfileById(
+                profileId
+            )
+        ) {
+            "Cannot update an unknown account profile."
+        }
+
+        accountDao.updateConnectionState(
+            profileId = profileId,
+            connectionState = connectionState,
+            updatedTime = System.currentTimeMillis()
+        )
+    }
+
     suspend fun updateSettings(
         settings: AccountSettingsEntity
     ) {

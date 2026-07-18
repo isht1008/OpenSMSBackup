@@ -2,7 +2,7 @@ package io.github.isht1008.opensmsbackup.gmail.credential
 
 import android.content.Context
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
-import com.google.android.gms.auth.api.signin.GoogleSignIn
+import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.gmail.auth.GmailAuthorizationManager
 
 class GoogleCredentialProvider(
@@ -13,6 +13,23 @@ class GoogleCredentialProvider(
         email: String
     ): GoogleAccountCredential {
 
+        return createCredential(
+            AccountProfileEntity(
+                profileId =
+                    "compatibility:$email",
+                accountEmail = email
+            )
+        )
+    }
+
+    fun createCredential(
+        profile: AccountProfileEntity
+    ): GoogleAccountCredential {
+
+        require(profile.accountEmail.isNotBlank()) {
+            "Account profile email cannot be blank."
+        }
+
         return GoogleAccountCredential
             .usingOAuth2(
                 context,
@@ -22,7 +39,8 @@ class GoogleCredentialProvider(
             )
             .apply {
 
-                selectedAccountName = email
+                selectedAccountName =
+                    profile.accountEmail
 
             }
 

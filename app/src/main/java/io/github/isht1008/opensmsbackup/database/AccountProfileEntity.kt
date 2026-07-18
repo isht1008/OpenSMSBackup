@@ -53,5 +53,8 @@ data class AccountProfileEntity(
 
         const val CONNECTION_STATE_DISCONNECTED =
             "DISCONNECTED"
+
+        const val CONNECTION_STATE_AUTHORIZATION_REQUIRED =
+            "AUTHORIZATION_REQUIRED"
     }
 }
