@@ -4,12 +4,14 @@ import android.content.Context
 import com.google.api.services.gmail.Gmail
 import com.google.api.services.gmail.model.ListLabelsResponse
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
+import io.github.isht1008.opensmsbackup.gmail.error.GmailRetryPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 class GmailApiClient(
-    private val context: Context
+    private val context: Context,
+    private val retryPolicy: GmailRetryPolicy = GmailRetryPolicy()
 ) {
 
     private val serviceFactory =
@@ -32,12 +34,16 @@ class GmailApiClient(
 
             try {
 
-                val response =
+                val response = retryPolicy.execute(
+                    operationName = "list_labels",
+                    profileId = profile.profileId
+                ) {
                     createService(profile)
                         .users()
                         .labels()
                         .list("me")
                         .execute()
+                }
 
                 Result.success(response)
 

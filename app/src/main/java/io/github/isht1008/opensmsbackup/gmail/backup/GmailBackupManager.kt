@@ -1,6 +1,7 @@
 package io.github.isht1008.opensmsbackup.gmail.backup
 
 import android.content.Context
+import android.util.Log
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.database.BackupAccountEntity
 import io.github.isht1008.opensmsbackup.database.ConversationSnapshotEntity
@@ -8,6 +9,9 @@ import io.github.isht1008.opensmsbackup.database.DatabaseProvider
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
 import io.github.isht1008.opensmsbackup.gmail.mime.ConversationMimeMessageBuilder
 import io.github.isht1008.opensmsbackup.gmail.upload.GmailUploader
+import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
+import io.github.isht1008.opensmsbackup.gmail.error.GmailErrorClassifier
+import io.github.isht1008.opensmsbackup.gmail.error.GmailOperationException
 import io.github.isht1008.opensmsbackup.sms.SmsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
@@ -39,10 +43,14 @@ class GmailBackupManager {
             uploaded: Int,
             skipped: Int,
             failed: Int
-        ) -> Unit
-    ): Result<GmailBackupSummary> {
+        ) -> Unit,
+        onRetry: (attempt: Int, maximumAttempts: Int) -> Unit = { _, _ -> }
+    ): Result<GmailBackupCompletion> {
 
         return withContext(Dispatchers.IO) {
+
+            var knownMessageTotal = 0
+            var knownConversationTotal = 0
 
             try {
                 require(
@@ -107,10 +115,14 @@ class GmailBackupManager {
                             includeContactNames
                     )
 
+                knownMessageTotal = messages.size
+
                 val conversations =
                     conversationBuilder.build(
                         messages
                     )
+
+                knownConversationTotal = conversations.size
 
                 val gmailService =
                     GmailApiClient(context)
@@ -120,8 +132,15 @@ class GmailBackupManager {
 
                 val uploader =
                     GmailUploader(
-                        gmail = gmailService
+                        gmail = gmailService,
+                        profileId = accountProfile.profileId,
+                        onRetry = onRetry
                     )
+
+                val classifier = GmailErrorClassifier()
+                val circuitBreaker = GmailFailureCircuitBreaker()
+                var abortFailure: io.github.isht1008.opensmsbackup.gmail.error.GmailFailure? = null
+                var abortState: GmailBackupCompletionState? = null
 
                 var checked = 0
                 var uploaded = 0
@@ -176,6 +195,7 @@ class GmailBackupManager {
                     ) {
                         skipped++
                         checked++
+                        circuitBreaker.recordSuccess()
 
                         onProgress(
                             checked,
@@ -234,6 +254,7 @@ class GmailBackupManager {
                             )
 
                             uploaded++
+                            circuitBreaker.recordSuccess()
 
                             val oldMessageId =
                                 existingSnapshot
@@ -248,6 +269,20 @@ class GmailBackupManager {
                                 uploader.trashMessage(
                                     oldMessageId
                                 ).onFailure { error ->
+
+                                    val failure =
+                                        if (error is GmailOperationException) error.failure
+                                        else classifier.classify(error)
+
+                                    if (failure.reauthorizationRequired) {
+                                        GmailAccountManager(context)
+                                            .markAuthorizationRequired(accountProfile)
+                                    }
+
+                                    if (failure.stopBackup) {
+                                        abortFailure = failure
+                                        abortState = GmailBackupCompletionState.ABORTED_FATAL
+                                    }
 
                                     if (warnings.size < 20) {
                                         warnings.add(
@@ -273,20 +308,38 @@ class GmailBackupManager {
                         .onFailure { error ->
                             failed++
 
+                            val failure =
+                                if (error is GmailOperationException) error.failure
+                                else classifier.classify(error)
+
+                            Log.w(
+                                "OpenSMSBackup",
+                                "gmail_operation=upload_conversation profile=${accountProfile.profileId.take(8)} " +
+                                    "status=${failure.httpStatusCode} reason=${failure.googleReason} " +
+                                    "category=${failure.category} retryable=${failure.retryable}"
+                            )
+
+                            if (failure.reauthorizationRequired) {
+                                GmailAccountManager(context)
+                                    .markAuthorizationRequired(accountProfile)
+                            }
+
+                            if (circuitBreaker.recordFailure(failure)) {
+                                abortFailure = failure
+                                abortState =
+                                    if (failure.stopBackup) {
+                                        GmailBackupCompletionState.ABORTED_FATAL
+                                    } else {
+                                        GmailBackupCompletionState.ABORTED_REPEATED_FAILURES
+                                    }
+                            }
+
                             if (failures.size < 20) {
                                 failures.add(
                                     buildString {
                                         append(
                                             "Thread ${conversation.threadId}"
                                         )
-
-                                        conversation.address
-                                            ?.takeIf { address ->
-                                                address.isNotBlank()
-                                            }
-                                            ?.let { address ->
-                                                append(" ($address)")
-                                            }
 
                                         append(": ")
                                         append(
@@ -311,6 +364,16 @@ class GmailBackupManager {
                         skipped,
                         failed
                     )
+
+                    if (abortState != null) {
+                        Log.w(
+                            "OpenSMSBackup",
+                            "gmail_early_abort profile=${accountProfile.profileId.take(8)} " +
+                                "state=$abortState checked=$checked failed=$failed " +
+                                "category=${abortFailure?.category} reason=${abortFailure?.googleReason}"
+                        )
+                        break
+                    }
                 }
 
                 val now =
@@ -332,14 +395,17 @@ class GmailBackupManager {
                 )
 
                 Result.success(
-                    GmailBackupSummary(
+                    GmailBackupCompletion(
+                        state = abortState ?: GmailBackupCompletionState.COMPLETED,
+                        checked = checked,
+                        total = conversations.size,
+                        uploaded = uploaded,
+                        unchanged = skipped,
+                        failed = failed,
+                        reason = abortFailure?.userMessage,
+                        accountEmail = trimmedEmail,
+                        failure = abortFailure,
                         totalMessages = messages.size,
-                        totalConversations =
-                            conversations.size,
-                        checkedConversations = checked,
-                        uploadedConversations = uploaded,
-                        skippedConversations = skipped,
-                        failedConversations = failed,
                         stoppedAtSafetyLimit =
                             safetyLimitReached,
                         failures = failures,
@@ -350,7 +416,29 @@ class GmailBackupManager {
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {
-                Result.failure(error)
+                val failure =
+                    if (error is GmailOperationException) error.failure
+                    else GmailErrorClassifier().classify(error)
+
+                if (failure.reauthorizationRequired) {
+                    GmailAccountManager(context)
+                        .markAuthorizationRequired(accountProfile)
+                }
+
+                Result.success(
+                    GmailBackupCompletion(
+                        state = GmailBackupCompletionState.FAILED_BEFORE_START,
+                        checked = 0,
+                        total = knownConversationTotal,
+                        uploaded = 0,
+                        unchanged = 0,
+                        failed = 0,
+                        reason = failure.userMessage,
+                        accountEmail = accountProfile.accountEmail,
+                        failure = failure,
+                        totalMessages = knownMessageTotal
+                    )
+                )
             }
         }
     }

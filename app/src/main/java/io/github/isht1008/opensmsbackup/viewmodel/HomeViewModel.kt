@@ -16,6 +16,8 @@ import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupManager
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupSession
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupCompletion
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupCompletionState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -47,6 +49,9 @@ class HomeViewModel : ViewModel() {
         private set
 
     private var activeGmailBackupJob: Job? = null
+
+    var gmailBackupCompletion by mutableStateOf<GmailBackupCompletion?>(null)
+        private set
 
     var gmailBackupProgress by mutableStateOf(0f)
         private set
@@ -289,6 +294,7 @@ class HomeViewModel : ViewModel() {
         gmailBackupProgress = 0f
 
         isGmailBackupCancellationRequested = false
+        gmailBackupCompletion = null
 
         var completed = 0
         var lastTotal = 0
@@ -375,24 +381,30 @@ class HomeViewModel : ViewModel() {
                                 $percent%
                                 """.trimIndent()
                             )
+                        },
+                        onRetry = { attempt, maximumAttempts ->
+                            updateStatus(
+                                "Temporary Gmail error. Retrying $attempt of $maximumAttempts…"
+                            )
                         }
                     )
 
                 result.onSuccess { summary ->
 
+                    gmailBackupCompletion = summary
+
                     gmailBackupProgress =
                         if (
-                            summary.totalConversations > 0 &&
+                            summary.total > 0 &&
                             !summary.stoppedAtSafetyLimit
                         ) {
-                            1f
+                            summary.checked.toFloat() /
+                                summary.total.toFloat()
                         } else if (
-                            summary.totalConversations > 0
+                            summary.total > 0
                         ) {
-                            summary.checkedConversations
-                                .toFloat() /
-                                    summary.totalConversations
-                                        .toFloat()
+                            summary.checked.toFloat() /
+                                summary.total.toFloat()
                         } else {
                             0f
                         }
@@ -402,18 +414,7 @@ class HomeViewModel : ViewModel() {
                             """
 
                             Test limit reached.
-                            Only ${String.format("%,d", summary.uploadedConversations)} changed conversations were uploaded.
-                            """.trimIndent()
-                        } else {
-                            ""
-                        }
-
-                    val failureDetails =
-                        if (summary.failures.isNotEmpty()) {
-                            """
-
-                            First errors
-                            ${summary.failures.joinToString("\n")}
+                            Only ${String.format("%,d", summary.uploaded)} changed conversations were uploaded.
                             """.trimIndent()
                         } else {
                             ""
@@ -430,27 +431,51 @@ class HomeViewModel : ViewModel() {
                             ""
                         }
 
+                    val heading = when (summary.state) {
+                        GmailBackupCompletionState.COMPLETED ->
+                            "Gmail conversation backup completed"
+                        GmailBackupCompletionState.ABORTED_FATAL ->
+                            "Gmail backup stopped early"
+                        GmailBackupCompletionState.ABORTED_REPEATED_FAILURES ->
+                            "Gmail backup stopped early after repeated failures"
+                        GmailBackupCompletionState.FAILED_BEFORE_START ->
+                            "Gmail backup could not start"
+                        GmailBackupCompletionState.CANCELLED ->
+                            "Gmail backup cancelled"
+                    }
+
+                    val reason = summary.reason?.let { "\n\nReason\n$it" }.orEmpty()
+                    val accountGuidance =
+                        if (summary.failure?.reauthorizationRequired == true) {
+                            "\n\nGmail authorization is required for ${summary.accountEmail}. Open Settings and re-authorize this account."
+                        } else {
+                            ""
+                        }
+
                     updateStatus(
                         """
-                        Gmail conversation backup completed
+                        $heading
 
                         SMS on device
                         ${String.format("%,d", summary.totalMessages)}
 
                         Conversations on device
-                        ${String.format("%,d", summary.totalConversations)}
+                        ${String.format("%,d", summary.total)}
 
                         Conversations checked
-                        ${String.format("%,d", summary.checkedConversations)}
+                        ${String.format("%,d", summary.checked)}
 
                         Uploaded or updated
-                        ${String.format("%,d", summary.uploadedConversations)}
+                        ${String.format("%,d", summary.uploaded)}
 
                         Unchanged
-                        ${String.format("%,d", summary.skippedConversations)}
+                        ${String.format("%,d", summary.unchanged)}
 
                         Failed
-                        ${String.format("%,d", summary.failedConversations)}$safetyMessage$failureDetails$warningDetails
+                        ${String.format("%,d", summary.failed)}
+
+                        Remaining
+                        ${String.format("%,d", summary.remaining)}$reason$accountGuidance$safetyMessage$warningDetails
                         """.trimIndent()
                     )
                 }
@@ -464,6 +489,15 @@ class HomeViewModel : ViewModel() {
                 }
 
             } catch (cancellation: CancellationException) {
+                gmailBackupCompletion = GmailBackupCompletion(
+                    state = GmailBackupCompletionState.CANCELLED,
+                    checked = completed,
+                    total = lastTotal,
+                    uploaded = lastUploaded,
+                    unchanged = lastSkipped,
+                    failed = lastFailed,
+                    accountEmail = null
+                )
                 updateStatus(
                     gmailCancellationSummary(
                         checked = completed,

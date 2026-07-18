@@ -3,18 +3,27 @@ package io.github.isht1008.opensmsbackup.gmail.label
 import com.google.api.services.gmail.Gmail
 import com.google.api.services.gmail.model.Label
 import io.github.isht1008.opensmsbackup.gmail.GmailConstants
+import io.github.isht1008.opensmsbackup.gmail.error.GmailRetryPolicy
 
 class GmailLabelManager(
-    private val gmail: Gmail
+    private val gmail: Gmail,
+    private val profileId: String = "unknown",
+    private val retryPolicy: GmailRetryPolicy = GmailRetryPolicy(),
+    private val onRetry: (Int, Int) -> Unit = { _, _ -> }
 ) {
 
-    private fun listLabels(): List<Label> {
+    private suspend fun listLabels(): List<Label> {
 
-        val response =
+        val response = retryPolicy.execute(
+            operationName = "list_labels",
+            profileId = profileId,
+            onRetry = onRetry
+        ) {
             gmail.users()
                 .labels()
                 .list("me")
                 .execute()
+        }
 
         return response.labels ?: emptyList()
     }
@@ -46,7 +55,7 @@ class GmailLabelManager(
             .execute()
     }
 
-    private fun getOrCreateLabel(
+    private suspend fun getOrCreateLabel(
         labels: MutableList<Label>,
         name: String
     ): Label {

@@ -21,3 +21,19 @@ The root contains `formatVersion: 3`, `backupType`, account email, snapshot hash
 - Gmail API needs `gmail.modify` for label creation and Trash operations.
 - Remote index search/recovery is absent; losing Room state causes re-upload rather than reconciliation.
 - Do not permanently delete Gmail messages without explicit confirmation.
+
+## Sprint 2B reliability behavior
+
+**Implemented:** Gmail failures are classified as authorization, configuration, rate limit, network, server, client, local, or unknown failures. Classification retains the original exception internally plus available HTTP status, Google reason, retryability, abort, reauthorization, and bounded Retry-After information. Normal UI messages are concise and do not expose stack traces or message content.
+
+Authorization failures such as HTTP 401 and missing Gmail permission stop immediately. The active profile is preserved and marked `AUTHORIZATION_REQUIRED`; temporary network, server, and throttling failures do not change its connected state. Ambiguous HTTP 403 responses stop conservatively, while explicit rate-limit reasons are treated as temporary.
+
+Retries use at most three attempts with cancellable exponential delays of roughly one and two seconds plus modest jitter. A server Retry-After value is honored up to ten seconds. Read-only label listing and move-to-Trash are retried because those operations are safe to repeat. Label creation is not retried because a lost response could create a duplicate label. Gmail message insertion is also not retried: until remote snapshot lookup/index reconstruction exists, a response lost after Gmail accepts an insert could create a duplicate conversation email.
+
+Fatal failures abort before the next conversation. Other matching failures trip an early-abort circuit after five consecutive conversations; a successful upload or unchanged conversation resets it. Checked/failed counts include only attempted conversations, while unattempted conversations are reported as remaining. Existing successful uploads and Room snapshots are retained.
+
+Sprint 2A cancellation remains distinct from failure. Cancellation bypasses classification and counters, interrupts retry delay, and stops before the next operation after any synchronous Gmail request returns. Settings and Backup History remain accessible during requests and retries.
+
+**Partially implemented:** Retries are operation-local and in-memory. The manual action remains safety-capped, and upload idempotency depends on Room state plus the existing upload-before-Trash ordering.
+
+**Planned for Sprint 2C and later:** durable execution, process-death recovery, foreground behavior, retry/resume checkpoints, remote duplicate prevention/index reconstruction, notifications, scheduling, and WorkManager integration.

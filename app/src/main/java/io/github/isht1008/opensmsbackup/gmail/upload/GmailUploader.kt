@@ -6,14 +6,23 @@ import io.github.isht1008.opensmsbackup.gmail.label.GmailLabelManager
 import io.github.isht1008.opensmsbackup.gmail.label.GmailLabels
 import io.github.isht1008.opensmsbackup.gmail.mime.GmailMessageEncoder
 import io.github.isht1008.opensmsbackup.gmail.model.SmsEmail
+import io.github.isht1008.opensmsbackup.gmail.error.GmailRetryPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 class GmailUploader(
     private val gmail: Gmail,
+    private val profileId: String,
+    private val retryPolicy: GmailRetryPolicy = GmailRetryPolicy(),
+    private val onRetry: (Int, Int) -> Unit = { _, _ -> },
     private val labelManager: GmailLabelManager =
-        GmailLabelManager(gmail),
+        GmailLabelManager(
+            gmail = gmail,
+            profileId = profileId,
+            retryPolicy = retryPolicy,
+            onRetry = onRetry
+        ),
     private val messageEncoder: GmailMessageEncoder =
         GmailMessageEncoder()
 ) {
@@ -89,13 +98,19 @@ class GmailUploader(
                     "Gmail message ID cannot be blank."
                 }
 
-                gmail.users()
-                    .messages()
-                    .trash(
-                        "me",
-                        gmailMessageId
-                    )
-                    .execute()
+                retryPolicy.execute(
+                    operationName = "trash_message",
+                    profileId = profileId,
+                    onRetry = onRetry
+                ) {
+                    gmail.users()
+                        .messages()
+                        .trash(
+                            "me",
+                            gmailMessageId
+                        )
+                        .execute()
+                }
 
                 Result.success(Unit)
 

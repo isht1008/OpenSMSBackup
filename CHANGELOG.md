@@ -1,5 +1,14 @@
 # Changelog
 
+## Sprint 2B — Intelligent Gmail Failure Handling
+
+- Added structured Gmail failure categories with HTTP status, Google reason, retryability, abort, reauthorization, and Retry-After metadata.
+- Added bounded cancellable retries for read-only label lookup and idempotent move-to-Trash requests.
+- Added immediate abort for fatal authorization/configuration failures and a five-consecutive-failure circuit breaker.
+- Added typed completed, cancelled, fatal-abort, repeated-failure-abort, and failed-before-start outcomes with accurate remaining counts.
+- Authorization failures preserve the profile and mark it `AUTHORIZATION_REQUIRED`; temporary failures leave it connected.
+- Preserved Sprint 2A cancellation throughout requests and retry delays.
+
 ## Sprint 2A — Cancellable Gmail Backup and Responsive Home UI
 
 - Added explicit, idempotent cancellation for an active Gmail conversation backup.
