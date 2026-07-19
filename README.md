@@ -20,7 +20,9 @@
 
 Manual Gmail backup currently runs as unique, profile-bound WorkManager foreground work. Progress survives Activity recreation and is shown in the app and a foreground notification. The notification and Home screen can cancel the exact work request. The current manual safety action remains limited to three changed conversations.
 
-Restore, recurring schedules, IMAP, Drive backup, remote deduplication, and exact per-conversation resume are not implemented yet.
+OpenSMSBackup is a backup and archival application. It does not restore messages into the Android SMS database and does not act as the default messaging application. Android and OEM migration tools remain the recommended phone-to-phone migration path, although availability and results vary by device.
+
+Recurring schedules, IMAP, Drive backup, remote deduplication, and exact per-conversation resume are not implemented yet.
 
 ## License
 

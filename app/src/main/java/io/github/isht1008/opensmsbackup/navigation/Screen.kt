@@ -6,7 +6,5 @@ sealed class Screen(val route: String) {
 
     data object BackupHistory : Screen("backup_history")
 
-    data object Restore : Screen("restore")
-
     data object Settings : Screen("settings")
 }

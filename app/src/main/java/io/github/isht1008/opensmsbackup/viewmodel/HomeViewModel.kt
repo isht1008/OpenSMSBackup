@@ -373,12 +373,12 @@ class HomeViewModel(
                             it.state == WorkInfo.State.CANCELLED)
                 }.maxByOrNull { GmailBackupWorkContract.createdAt(it.tags) }
                 val selected = active ?: terminal ?: return@collectLatest
-                restoreGmailUiState(selected)
+                applyGmailUiState(selected)
             }
         }
     }
 
-    private fun restoreGmailUiState(workInfo: WorkInfo) {
+    private fun applyGmailUiState(workInfo: WorkInfo) {
         val progress = GmailBackupWorkContract.readProgress(workInfo.progress)
         val completion = GmailBackupWorkContract.readCompletion(workInfo.outputData)
         gmailBackupUiState = GmailBackupWorkStateMapper.map(

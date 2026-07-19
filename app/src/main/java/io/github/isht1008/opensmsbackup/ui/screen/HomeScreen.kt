@@ -47,7 +47,6 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onBackupClick: () -> Unit,
     onBackupHistoryClick: () -> Unit,
-    onRestoreClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -306,16 +305,6 @@ fun HomeScreen(
                         PendingBackupAction.GMAIL
                     )
                 },
-                enabled = !backupInProgress
-            )
-
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
-
-            PrimaryButton(
-                text = "Restore SMS",
-                onClick = onRestoreClick,
                 enabled = !backupInProgress
             )
 

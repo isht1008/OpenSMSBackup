@@ -7,7 +7,7 @@ import org.junit.Test
 import java.nio.charset.StandardCharsets
 
 class ArchivedConversationParserTest {
-    @Test fun `parser reads the existing format three restore attachment`() {
+    @Test fun `parser reads the existing format three archive attachment`() {
         val original = SmsConversationSnapshot(
             threadId = 7,
             address = "+1 555 123 4567",

@@ -52,6 +52,6 @@ Depends on stable identity and rendering.
 - Android Sharesheet export and email-to-recipient workflow with explicit privacy confirmation.
 - Validate output and attachment limits on large conversations.
 
-## Stage 6 — Restore gate (deferred)
+## Stage 6 — Restore (deferred beyond v1)
 
-Restore work must not begin until Stages 1–5 are stable, migrations and reinstall recovery are tested, backup formats are versioned, encryption recovery is defined, and physical-device end-to-end backup tests pass. Only then design preview, duplicate detection, default-SMS-app requirements, partial failure recovery, and audit-safe restore.
+OpenSMSBackup v1 is backup-only and does not act as the default messaging application or write to the Android SMS provider. Any future restore proposal requires a separate product and safety review after the backup platform is stable.

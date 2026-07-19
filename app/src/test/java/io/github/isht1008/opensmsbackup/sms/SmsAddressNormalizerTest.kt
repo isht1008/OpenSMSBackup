@@ -30,6 +30,14 @@ class SmsAddressNormalizerTest {
             normalizer.normalize("AX-HDFCBK", "IN").canonical,
             normalizer.normalize("HDFCBK", "IN").canonical
         )
+        assertNotEquals(
+            normalizer.normalize("VM-HDFCBK", "IN").canonical,
+            normalizer.normalize("HDFCBK", "IN").canonical
+        )
+        assertNotEquals(
+            normalizer.normalize("AX-HDFCBK", "IN").canonical,
+            normalizer.normalize("VM-HDFCBK", "IN").canonical
+        )
     }
 
     @Test fun `short malformed empty and null addresses are safe and deterministic`() {

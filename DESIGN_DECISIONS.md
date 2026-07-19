@@ -20,7 +20,7 @@ Archive is the recommended default: preserve remote backups when device messages
 
 ### Restore gate
 
-Sprint 4A authorizes a bounded Android 12+ SMS-only Restore MVP. Gmail discovery and parsing remain separate from provider insertion. Preview precedes the SMS-role request; the worker verifies the role again, uses V1/V2 duplicate aliases, never supplies thread IDs, and preserves partial structured results. MMS, call logs, rollback, old-Android compatibility, and unbounded catalogs remain deferred.
+Restore is outside the backup-only v1 product boundary. The app does not request the Android SMS role, write to the SMS provider, or qualify as a default messaging application. Android and OEM migration tools remain the recommended phone-to-phone migration path without a guarantee of completeness on every device.
 
 ### Durable manual Gmail execution
 

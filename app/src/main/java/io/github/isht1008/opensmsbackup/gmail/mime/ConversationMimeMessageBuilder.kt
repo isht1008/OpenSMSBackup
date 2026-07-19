@@ -91,7 +91,7 @@ class ConversationMimeMessageBuilder {
                     fileName = attachmentName,
                     mimeType =
                         "application/vnd.opensmsbackup.conversation+json",
-                    content = buildRestoreJson(
+                    content = buildArchiveJson(
                         conversation = conversation,
                         accountEmail = accountEmail,
                         snapshotHash = snapshotHash,
@@ -231,7 +231,7 @@ class ConversationMimeMessageBuilder {
             appendLine()
             appendLine()
             appendLine(
-                "Restore data: $attachmentName"
+                "Archive data: $attachmentName"
             )
 
             append(
@@ -372,7 +372,7 @@ class ConversationMimeMessageBuilder {
             )
 
             append(
-                "Restore data is attached as <strong>${escapeHtml(attachmentName)}</strong>.<br>"
+                "Archive data is attached as <strong>${escapeHtml(attachmentName)}</strong>.<br>"
             )
 
             append(
@@ -578,7 +578,7 @@ class ConversationMimeMessageBuilder {
         }
     }
 
-    private fun buildRestoreJson(
+    private fun buildArchiveJson(
         conversation: SmsConversationSnapshot,
         accountEmail: String,
         snapshotHash: String,

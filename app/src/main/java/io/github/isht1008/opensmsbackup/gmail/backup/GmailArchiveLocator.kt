@@ -17,8 +17,7 @@ data class GmailArchiveDocument(
     val deviceIdHeader: String? = null,
     val identityVersionHeader: String? = null,
     val labelIds: Set<String> = emptySet(),
-    val defaultRegionHeader: String? = null,
-    val deviceNameHeader: String? = null
+    val defaultRegionHeader: String? = null
 )
 
 interface GmailArchiveLookup {

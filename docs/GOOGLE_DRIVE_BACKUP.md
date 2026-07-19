@@ -16,4 +16,4 @@
 - Make disconnect local-only; OAuth revocation is a distinct confirmed action.
 - Never delete Drive files/revisions without explicit confirmation and a clear recovery story.
 
-Drive recovery must be stable before Restore begins.
+Drive recovery remains planned independently of the backup-only v1 boundary.
