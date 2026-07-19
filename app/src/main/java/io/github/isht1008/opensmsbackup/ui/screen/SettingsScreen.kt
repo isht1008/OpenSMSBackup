@@ -95,6 +95,18 @@ fun SettingsScreen(
                     onValueChange = { viewModel.secondaryPhoneDraft = it },
                     label = { Text("Replace secondary number (optional)") }
                 )
+                OutlinedTextField(
+                    value = viewModel.defaultRegionDraft,
+                    onValueChange = { viewModel.defaultRegionDraft = it.uppercase(java.util.Locale.ROOT) },
+                    label = { Text("Default country (ISO code)") }
+                )
+                Text("Used to interpret local phone numbers.")
+                if (viewModel.normalizedNumberExample.isNotBlank()) {
+                    Text("Example: 9876543210 → ${viewModel.normalizedNumberExample}")
+                }
+                viewModel.countryError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
                 Text("Gmail: ${viewModel.deviceLabelPreview}")
                 Spacer(Modifier.height(8.dp))
                 PrimaryButton("Save Device", viewModel::saveDeviceProfile)

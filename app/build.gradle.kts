@@ -156,6 +156,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
 
     implementation(libs.androidx.work.runtime.ktx)
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.32")
 
     kapt(libs.androidx.room.compiler)
 

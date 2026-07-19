@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 import io.github.isht1008.opensmsbackup.device.DeviceProfile
 import io.github.isht1008.opensmsbackup.device.DeviceProfileStore
 import io.github.isht1008.opensmsbackup.device.DeviceDisplayName
+import io.github.isht1008.opensmsbackup.device.CountryRegion
+import io.github.isht1008.opensmsbackup.sms.SmsAddressNormalizer
 
 class SettingsViewModel(
     private val gmailAccountManager: GmailAccountManager,
@@ -53,12 +55,20 @@ class SettingsViewModel(
     var deviceNameDraft by mutableStateOf("")
     var primaryPhoneDraft by mutableStateOf("")
     var secondaryPhoneDraft by mutableStateOf("")
+    var defaultRegionDraft by mutableStateOf("")
+    var countryError by mutableStateOf<String?>(null)
+        private set
     var deviceSaveMessage by mutableStateOf<String?>(null)
         private set
 
     val deviceLabelPreview: String
         get() = deviceProfile?.let {
             "SMS/Devices/${DeviceDisplayName.gmailLabelSegment(deviceNameDraft, primaryPhoneDraft.ifBlank { it.primaryPhoneNumber }, it.deviceId, false)}/Conversations"
+        }.orEmpty()
+
+    val normalizedNumberExample: String
+        get() = CountryRegion.validated(defaultRegionDraft)?.let { region ->
+            SmsAddressNormalizer().normalize("9876543210", region).canonical
         }.orEmpty()
 
     val isLastUsableDisconnect: Boolean
@@ -211,12 +221,20 @@ class SettingsViewModel(
     fun saveDeviceProfile() {
         viewModelScope.launch {
             val current = deviceProfile ?: return@launch
+            val region = CountryRegion.validated(defaultRegionDraft)
+            if (region == null) {
+                countryError = "Enter a supported two-letter country code, such as IN or US."
+                return@launch
+            }
+            countryError = null
             deviceProfile = deviceProfileStore.update(
                 displayName = deviceNameDraft,
                 primaryPhoneNumber = primaryPhoneDraft.ifBlank { null },
-                secondaryPhoneNumber = secondaryPhoneDraft.ifBlank { null }
+                secondaryPhoneNumber = secondaryPhoneDraft.ifBlank { null },
+                defaultRegion = region
             )
             deviceNameDraft = requireNotNull(deviceProfile).displayName
+            defaultRegionDraft = requireNotNull(deviceProfile).defaultRegion
             primaryPhoneDraft = ""
             secondaryPhoneDraft = ""
             deviceSaveMessage = "Device profile saved. Gmail will keep the same device identity."
@@ -227,6 +245,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             deviceProfile = deviceProfileStore.getOrCreate()
             deviceNameDraft = requireNotNull(deviceProfile).displayName
+            defaultRegionDraft = requireNotNull(deviceProfile).defaultRegion
         }
     }
 

@@ -31,7 +31,8 @@ class DeviceProfileStore private constructor(
             secondaryPhoneNumber = null,
             displayName = DeviceDisplayName.initialBaseName(null, manufacturer, model),
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            defaultRegion = CountryRegion.initial()
         )
         dataStore.edit { preferences ->
             if (preferences[DEVICE_ID] == null) write(preferences, profile)
@@ -42,7 +43,8 @@ class DeviceProfileStore private constructor(
     suspend fun update(
         displayName: String,
         primaryPhoneNumber: String?,
-        secondaryPhoneNumber: String?
+        secondaryPhoneNumber: String?,
+        defaultRegion: String? = null
     ): DeviceProfile {
         val current = getOrCreate()
         val updated = current.copy(
@@ -53,7 +55,9 @@ class DeviceProfileStore private constructor(
                 ?.takeIf { it.isNotBlank() } ?: current.primaryPhoneNumber,
             secondaryPhoneNumber = secondaryPhoneNumber?.trim()
                 ?.takeIf { it.isNotBlank() } ?: current.secondaryPhoneNumber,
-            updatedAt = System.currentTimeMillis()
+            updatedAt = System.currentTimeMillis(),
+            defaultRegion = defaultRegion?.let(CountryRegion::validated)
+                ?: current.defaultRegion
         )
         dataStore.edit { write(it, updated) }
         return updated
@@ -73,7 +77,7 @@ class DeviceProfileStore private constructor(
             id, p[MANUFACTURER].orEmpty(), p[MODEL].orEmpty(), p[MARKETING_NAME],
             p[ANDROID_VERSION].orEmpty(), p[PRIMARY_PHONE], p[SECONDARY_PHONE],
             p[DISPLAY_NAME] ?: "Android Phone", p[CREATED_AT] ?: 0L,
-            p[UPDATED_AT] ?: 0L
+            p[UPDATED_AT] ?: 0L, p[DEFAULT_REGION] ?: CountryRegion.initial()
         )
     }
 
@@ -82,6 +86,7 @@ class DeviceProfileStore private constructor(
         d.marketingName?.let { p[MARKETING_NAME] = it }; p[ANDROID_VERSION] = d.androidVersion
         d.primaryPhoneNumber?.let { p[PRIMARY_PHONE] = it }; d.secondaryPhoneNumber?.let { p[SECONDARY_PHONE] = it }
         p[DISPLAY_NAME] = d.displayName; p[CREATED_AT] = d.createdAt; p[UPDATED_AT] = d.updatedAt
+        p[DEFAULT_REGION] = d.defaultRegion
     }
 
     companion object {
@@ -95,6 +100,7 @@ class DeviceProfileStore private constructor(
         private val DISPLAY_NAME = stringPreferencesKey("display_name")
         private val CREATED_AT = longPreferencesKey("created_at")
         private val UPDATED_AT = longPreferencesKey("updated_at")
+        private val DEFAULT_REGION = stringPreferencesKey("default_region")
         @Volatile private var instance: DeviceProfileStore? = null
         fun create(context: Context): DeviceProfileStore = instance ?: synchronized(this) {
             instance ?: DeviceProfileStore(

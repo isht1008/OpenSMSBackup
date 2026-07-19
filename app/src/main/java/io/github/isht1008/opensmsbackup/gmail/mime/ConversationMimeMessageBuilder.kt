@@ -94,7 +94,8 @@ class ConversationMimeMessageBuilder {
                     content = buildRestoreJson(
                         conversation = conversation,
                         accountEmail = accountEmail,
-                        snapshotHash = snapshotHash
+                        snapshotHash = snapshotHash,
+                        deviceProfile = deviceProfile
                     ).toByteArray(
                         StandardCharsets.UTF_8
                     )
@@ -546,16 +547,17 @@ class ConversationMimeMessageBuilder {
                     ArchiveConversationIdentity.key(conversation.address, accountEmail)
                 } else {
                     ArchiveConversationIdentity.key(
-                        ArchiveConversationIdentity.Version.V2_ACCOUNT_DEVICE_ADDRESS,
+                        ArchiveConversationIdentity.Version.V3_ACCOUNT_DEVICE_COUNTRY_ADDRESS,
                         conversation.address,
                         accountEmail,
-                        deviceProfile.deviceId
+                        deviceProfile.deviceId,
+                        deviceProfile.defaultRegion
                     )
                 }
             )
 
             if (deviceProfile != null) {
-                put(OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION, "2")
+                put(OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION, "3")
                 put(OpenSmsHeaders.DEVICE_ID, sanitizeHeaderValue(deviceProfile.deviceId))
                 put(
                     OpenSmsHeaders.DEVICE_NAME,
@@ -563,6 +565,8 @@ class ConversationMimeMessageBuilder {
                         DeviceDisplayName.sanitizeLabelSegment(deviceProfile.displayName)
                     )
                 )
+                put(OpenSmsHeaders.FINGERPRINT_VERSION, "2")
+                put(OpenSmsHeaders.DEFAULT_REGION, deviceProfile.defaultRegion)
             }
 
             put(
@@ -577,7 +581,8 @@ class ConversationMimeMessageBuilder {
     private fun buildRestoreJson(
         conversation: SmsConversationSnapshot,
         accountEmail: String,
-        snapshotHash: String
+        snapshotHash: String,
+        deviceProfile: DeviceProfile?
     ): String {
 
         val messages =
@@ -657,6 +662,11 @@ class ConversationMimeMessageBuilder {
                 "createdAt",
                 System.currentTimeMillis()
             )
+
+            if (deviceProfile != null) {
+                put("fingerprintVersion", 2)
+                put("defaultRegion", deviceProfile.defaultRegion)
+            }
 
             put(
                 "conversation",

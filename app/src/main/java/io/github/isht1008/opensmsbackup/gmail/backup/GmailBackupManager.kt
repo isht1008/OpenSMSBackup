@@ -177,7 +177,8 @@ class GmailBackupManager {
                                 trimmedEmail,
                                 deviceProfile.deviceId,
                                 deviceLabelId,
-                                conversation
+                                conversation,
+                                deviceProfile.defaultRegion
                             )
                         } == true
                     }
@@ -188,7 +189,8 @@ class GmailBackupManager {
                             lookup = archiveReader,
                             accountEmail = trimmedEmail,
                             deviceId = deviceProfile.deviceId,
-                            deviceLabelId = deviceLabelId
+                            deviceLabelId = deviceLabelId,
+                            defaultRegion = deviceProfile.defaultRegion
                         ),
                         uploader = uploader,
                         snapshotDao = snapshotDao,

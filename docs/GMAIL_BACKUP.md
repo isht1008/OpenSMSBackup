@@ -73,3 +73,11 @@ Both mirror and archive uploads use `SMS/Devices/<sanitized device display>/Conv
 Archive search is restricted to the current device label and rejects another device ID. Legacy V1 snapshots are readable only through an existing matching Room cache; label search never allows a new device to claim an unowned V1 archive. Mirror replacement validates V2 account/device/conversation/label ownership before Trash, so legacy or foreign-device messages are preserved.
 
 **Partially implemented:** Device marketing names use Android's available manufacturer/model metadata; no external marketing-name catalog is bundled. Reinstall/app-data deletion starts a new device identity. Archive History and cross-device merge remain deferred.
+
+## Sprint 3D country-aware identity
+
+**Implemented:** Installation Device Profiles now retain a validated ISO 3166-1 alpha-2 default region, initially derived from the device locale with a US fallback. Settings permits editing this value without changing the installation UUID. The app uses Google's official libphonenumber library to classify valid telephone numbers and canonicalize them to E.164. Alphanumeric sender IDs, short codes, and malformed/empty values remain distinct deterministic identities; no phone, SIM, location, or contacts permission is used for country selection.
+
+Message fingerprints are explicitly versioned. V1 preserves the previous byte-for-byte algorithm. New comparisons also calculate V2 from the country-aware address, direction, timestamp, and body. Archive merging stores both aliases in a hash set, so messages represented by legacy V1 semantics are not appended again solely because the fingerprint version changed. New format-v3 attachments remain format-v3 and add optional `fingerprintVersion` and `defaultRegion` metadata plus equivalent MIME headers; older parsers can ignore these additive fields.
+
+New snapshots use archive identity V3: normalized account, installation device ID, and country-aware address. Discovery searches V3 first, then the existing device-scoped V2 key in the same device label. Legacy V1 remains limited to the pre-existing Room-linked cached-message compatibility rule, so a second device cannot claim it. Existing V1/V2 identities and format-v3 attachments are not rewritten or invalidated.

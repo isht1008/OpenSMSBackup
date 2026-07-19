@@ -16,7 +16,8 @@ data class GmailArchiveDocument(
     val conversation: SmsConversationSnapshot,
     val deviceIdHeader: String? = null,
     val identityVersionHeader: String? = null,
-    val labelIds: Set<String> = emptySet()
+    val labelIds: Set<String> = emptySet(),
+    val defaultRegionHeader: String? = null
 )
 
 interface GmailArchiveLookup {
@@ -35,13 +36,21 @@ class GmailArchiveLocator(
     private val lookup: GmailArchiveLookup,
     private val accountEmail: String,
     private val deviceId: String,
-    private val deviceLabelId: String
+    private val deviceLabelId: String,
+    private val defaultRegion: String = "US"
 ) {
     suspend fun locate(
         conversation: SmsConversationSnapshot,
         cachedMessageId: String?
     ): Result<GmailArchiveDocument?> {
-        val expectedKey = ArchiveConversationIdentity.key(
+        val expectedV3Key = ArchiveConversationIdentity.key(
+            ArchiveConversationIdentity.Version.V3_ACCOUNT_DEVICE_COUNTRY_ADDRESS,
+            conversation.address,
+            accountEmail,
+            deviceId,
+            defaultRegion
+        )
+        val expectedV2Key = ArchiveConversationIdentity.key(
             ArchiveConversationIdentity.Version.V2_ACCOUNT_DEVICE_ADDRESS,
             conversation.address,
             accountEmail,
@@ -51,21 +60,26 @@ class GmailArchiveLocator(
         cachedMessageId?.takeIf { it.isNotBlank() }?.let { messageId ->
             val cached = lookup.read(messageId)
             cached.getOrNull()?.takeIf {
-                isValid(it, expectedKey, allowLegacy = true)
+                isValid(it, conversation, expectedV3Key, expectedV2Key, allowLegacy = true)
             }?.let {
                 return Result.success(it)
             }
         }
 
-        val candidates = lookup.search(expectedKey, deviceLabelId).getOrElse {
+        val v3Candidates = lookup.search(expectedV3Key, deviceLabelId).getOrElse {
+            return Result.failure(it)
+        }
+        val v2Candidates = lookup.search(expectedV2Key, deviceLabelId).getOrElse {
             return Result.failure(it)
         }
         var newest: GmailArchiveDocument? = null
 
-        candidates.distinctBy { it.messageId }.forEach { candidate ->
+        (v3Candidates + v2Candidates).distinctBy { it.messageId }.forEach { candidate ->
             val result = lookup.read(candidate.messageId)
             val document = result.getOrNull()
-            if (document != null && isValid(document, expectedKey, allowLegacy = false)) {
+            if (document != null && isValid(
+                    document, conversation, expectedV3Key, expectedV2Key, allowLegacy = false
+                )) {
                 if (newest == null || document.internalDate > requireNotNull(newest).internalDate) {
                     newest = document
                 }
@@ -81,7 +95,9 @@ class GmailArchiveLocator(
 
     private fun isValid(
         document: GmailArchiveDocument,
-        expectedKey: String,
+        conversation: SmsConversationSnapshot,
+        expectedV3Key: String,
+        expectedV2Key: String,
         allowLegacy: Boolean
     ): Boolean {
         if (document.deviceIdHeader == null) {
@@ -99,8 +115,9 @@ class GmailArchiveLocator(
             accountEmail,
             deviceId,
             deviceLabelId,
-            SmsConversationSnapshot(0, document.conversation.address, null, emptyList())
-        ) && document.conversationKeyHeader == expectedKey
+            conversation,
+            defaultRegion
+        ) && document.conversationKeyHeader in setOf(expectedV3Key, expectedV2Key)
     }
 
     private fun canSkip(error: Throwable): Boolean =

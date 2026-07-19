@@ -10,7 +10,8 @@ data class DeviceProfile(
     val secondaryPhoneNumber: String?,
     val displayName: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val defaultRegion: String = "US"
 ) {
     val shortId: String
         get() = deviceId.replace("-", "").take(4).uppercase()

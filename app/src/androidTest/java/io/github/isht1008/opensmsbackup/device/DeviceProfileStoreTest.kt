@@ -16,12 +16,15 @@ class DeviceProfileStoreTest {
         )
         val first = store.getOrCreate()
         val second = store.getOrCreate()
-        val edited = store.update("Test Phone", "+1 555 123 4567", null)
+        val edited = store.update("Test Phone", "+1 555 123 4567", null, "IN")
+        val reloaded = store.getOrCreate()
 
         assertNotNull(java.util.UUID.fromString(first.deviceId))
         assertEquals(first.deviceId, second.deviceId)
         assertEquals(first.deviceId, edited.deviceId)
+        assertEquals(first.deviceId, reloaded.deviceId)
         assertEquals("Test Phone", edited.displayName)
         assertEquals("•••••34567", edited.maskedPrimaryPhoneNumber)
+        assertEquals("IN", reloaded.defaultRegion)
     }
 }

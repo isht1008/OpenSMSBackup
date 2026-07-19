@@ -34,7 +34,8 @@ class ArchiveAppendBackupStrategy(
         persistSnapshot = { snapshotDao.insert(it) },
         accountId = accountId,
         accountEmail = accountEmail,
-        deviceProfile = deviceProfile
+        deviceProfile = deviceProfile,
+        merger = ArchiveConversationMerger(deviceProfile.defaultRegion)
     )
 
     override suspend fun execute(

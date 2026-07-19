@@ -46,6 +46,20 @@ class ArchiveConversationMergerTest {
         assertEquals(listOf(100L, 200L, 300L), result.conversation.messages.map { it.date })
     }
 
+    @Test fun `legacy archive national format deduplicates current international format`() {
+        val countryMerger = ArchiveConversationMerger("IN")
+        val archivedMessage = SmsMessage(1, 7, "09876543210", null, "same", 100, "", 1)
+        val phoneMessage = archivedMessage.copy(id = 2, address = "+91 98765 43210")
+
+        val result = countryMerger.merge(
+            SmsConversationSnapshot(7, "09876543210", null, listOf(archivedMessage)),
+            SmsConversationSnapshot(7, "+91 98765 43210", null, listOf(phoneMessage))
+        )
+
+        assertEquals(0, result.appendedCount)
+        assertEquals(1, result.conversation.messageCount)
+    }
+
     @Test fun `large conversation merge remains linear enough for practical use`() {
         val archived = conversation(*Array(10_000) { message(it.toLong(), it.toLong()) })
         val phone = conversation(*Array(10_000) {

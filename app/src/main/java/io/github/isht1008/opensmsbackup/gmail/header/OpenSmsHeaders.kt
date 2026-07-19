@@ -39,6 +39,10 @@ object OpenSmsHeaders {
 
     const val DEVICE_NAME = "X-OpenSMSBackup-Device-Name"
 
+    const val FINGERPRINT_VERSION = "X-OpenSMSBackup-Fingerprint-Version"
+
+    const val DEFAULT_REGION = "X-OpenSMSBackup-Default-Region"
+
     const val MESSAGE_COUNT =
         "X-OpenSMSBackup-Message-Count"
 
