@@ -47,6 +47,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onBackupClick: () -> Unit,
     onBackupHistoryClick: () -> Unit,
+    onRestoreClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -314,13 +315,7 @@ fun HomeScreen(
 
             PrimaryButton(
                 text = "Restore SMS",
-                onClick = {
-                    if (!backupInProgress) {
-                        viewModel.updateStatus(
-                            "Restore is not available yet."
-                        )
-                    }
-                },
+                onClick = onRestoreClick,
                 enabled = !backupInProgress
             )
 

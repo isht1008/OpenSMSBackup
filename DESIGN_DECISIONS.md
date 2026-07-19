@@ -20,7 +20,7 @@ Archive is the recommended default: preserve remote backups when device messages
 
 ### Restore gate
 
-Restore is deferred until multi-account behavior, stable identity, index rebuild, retry/resume, complete manual backup, automation, Drive state, large-data behavior, encryption, export surfaces, and health reporting are stable.
+Sprint 4A authorizes a bounded Android 12+ SMS-only Restore MVP. Gmail discovery and parsing remain separate from provider insertion. Preview precedes the SMS-role request; the worker verifies the role again, uses V1/V2 duplicate aliases, never supplies thread IDs, and preserves partial structured results. MMS, call logs, rollback, old-Android compatibility, and unbounded catalogs remain deferred.
 
 ### Durable manual Gmail execution
 

@@ -1,11 +1,15 @@
 # Restore
 
-## Status: deferred
+## Status
 
-No SMS restore implementation exists. The home button only reports that restore is unavailable; the navigation route is unused. The Gmail JSON attachment is restore-oriented, but producing JSON does not establish a safe restore pipeline. The README’s restore/IMAP bullets describe direction, not current capability.
+**Implemented:** Sprint 4A provides a preview-first Android 12+ SMS Restore MVP. A connected Gmail profile discovers bounded `SMS/Devices/*/Conversations` namespaces, validates format-v3 attachments, and selects the newest valid device-owned snapshot per conversation. Users select and search exact conversations before any Android SMS-role request occurs.
 
-Restore must not begin until the backup platform is stable: multi-account profiles, complete Gmail Backup Now, Drive state/database export, disconnect/revocation, archive/mirror policy, stable identity, Gmail index reconstruction, retry/resume, scheduled and incoming-SMS backup, large-conversation support, encryption, export/share features, health reporting, migrations, and reinstall recovery.
+Restore insertion is separated behind `RestoreEngine` and `SmsRestoreWriter`. The engine orders messages chronologically, indexes the local provider once, recognizes V1 and country-aware V2 duplicate aliases, continues after individual insertion failures, and records structured partial progress. Restore plans are stored only in private app storage; WorkManager input/progress never contains SMS content. The worker verifies the SMS role again before reading or inserting and provides foreground progress and cancellation where notification permission is available.
 
-## Future restore design gate
+**Partially implemented:** Gmail discovery is deliberately bounded to 500 messages per device namespace and probes ten messages per device label. Very large namespaces need paginated catalog indexing later. Cancellation preserves completed inserts and checkpoint counts but cannot roll them back. Users must manually return their preferred messaging app to the SMS role after restore. Physical-device validation remains required on the Samsung S21 FE.
 
-After prerequisites pass, design version compatibility, integrity/decryption checks, source/account selection, preview and counts, Android default-SMS-app constraints, duplicate detection, thread/participant mapping, subscription/type fidelity, partial failure checkpoints, cancellation, and rollback/recovery. Test on an expendable fixture dataset and the Samsung S21 FE without uninstalling during Room migration tests. Never overwrite or delete source cloud backups as a side effect of restore.
+**Deferred:** MMS, call-log restore, old-Android compatibility, cross-device merging, archive history, and rollback.
+
+## Safety contract
+
+Restore never modifies Gmail source data, never deletes or edits existing local SMS, never fabricates thread IDs, and does not insert unless the SMS role is held. Test on an expendable fixture dataset and the Samsung S21 FE. Do not uninstall while evaluating migration behavior.

@@ -67,7 +67,8 @@ class GmailArchivedConversationReader(
                             OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION
                         ),
                         labelIds = message.labelIds.orEmpty().toSet(),
-                        defaultRegionHeader = header(message.payload, OpenSmsHeaders.DEFAULT_REGION)
+                        defaultRegionHeader = header(message.payload, OpenSmsHeaders.DEFAULT_REGION),
+                        deviceNameHeader = header(message.payload, OpenSmsHeaders.DEVICE_NAME)
                     )
                 )
             } catch (cancellation: CancellationException) {

@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import io.github.isht1008.opensmsbackup.ui.screen.BackupHistoryScreen
 import io.github.isht1008.opensmsbackup.ui.screen.HomeScreen
 import io.github.isht1008.opensmsbackup.ui.screen.SettingsScreen
+import io.github.isht1008.opensmsbackup.ui.screen.RestoreScreen
 import io.github.isht1008.opensmsbackup.viewmodel.BackupHistoryViewModel
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 
@@ -36,6 +37,8 @@ fun OpenSmsBackupNavHost(
                         Screen.BackupHistory.route
                     )
                 },
+
+                onRestoreClick = { navController.navigate(Screen.Restore.route) },
 
                 onSettingsClick = {
                     navController.navigate(
@@ -66,6 +69,10 @@ fun OpenSmsBackupNavHost(
                     navController.popBackStack()
                 }
             )
+        }
+
+        composable(Screen.Restore.route) {
+            RestoreScreen(onBackClick = { navController.popBackStack() })
         }
 
     }
