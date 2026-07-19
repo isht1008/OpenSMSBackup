@@ -8,13 +8,14 @@ import androidx.lifecycle.viewModelScope
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
-import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupSession
+import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkCoordinator
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val gmailAccountManager: GmailAccountManager,
-    private val gmailAccountCoordinator: GmailAccountCoordinator
+    private val gmailAccountCoordinator: GmailAccountCoordinator,
+    private val gmailBackupWorkCoordinator: GmailBackupWorkCoordinator
 ) : ViewModel() {
 
     var accountProfiles by
@@ -139,13 +140,14 @@ class SettingsViewModel(
     fun requestDisconnect(
         profile: AccountProfileEntity
     ) {
-        if (GmailBackupSession.isActive(profile.profileId)) {
-            errorMessage =
-                "Cancel the running Gmail backup before disconnecting this account."
-            return
+        viewModelScope.launch {
+            if (gmailBackupWorkCoordinator.hasActiveWork(profile.profileId)) {
+                errorMessage =
+                    "Cancel the running Gmail backup before disconnecting this account."
+                return@launch
+            }
+            pendingDisconnectProfile = profile
         }
-
-        pendingDisconnectProfile = profile
     }
 
     fun dismissDisconnect() {
@@ -157,16 +159,14 @@ class SettingsViewModel(
             pendingDisconnectProfile
                 ?: return
 
-        if (GmailBackupSession.isActive(profile.profileId)) {
-            pendingDisconnectProfile = null
-            errorMessage =
-                "Cancel the running Gmail backup before disconnecting this account."
-            return
-        }
-
         pendingDisconnectProfile = null
 
         viewModelScope.launch {
+            if (gmailBackupWorkCoordinator.hasActiveWork(profile.profileId)) {
+                errorMessage =
+                    "Cancel the running Gmail backup before disconnecting this account."
+                return@launch
+            }
             busyProfileId = profile.profileId
             errorMessage = null
 

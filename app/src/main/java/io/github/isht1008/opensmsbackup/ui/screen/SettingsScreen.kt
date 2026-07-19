@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
+import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkCoordinator
 import io.github.isht1008.opensmsbackup.ui.component.AccountProfileCard
 import io.github.isht1008.opensmsbackup.ui.component.DisconnectAccountDialog
 import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
@@ -38,7 +39,8 @@ fun SettingsScreen(
         viewModel(
             factory = SettingsViewModelFactory(
                 GmailAccountManager(context),
-                GmailAccountCoordinator(context)
+                GmailAccountCoordinator(context),
+                GmailBackupWorkCoordinator(context)
             )
         )
 

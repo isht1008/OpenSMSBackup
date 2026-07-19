@@ -9,7 +9,7 @@ class GmailLabelManager(
     private val gmail: Gmail,
     private val profileId: String = "unknown",
     private val retryPolicy: GmailRetryPolicy = GmailRetryPolicy(),
-    private val onRetry: (Int, Int) -> Unit = { _, _ -> }
+    private val onRetry: suspend (Int, Int) -> Unit = { _, _ -> }
 ) {
 
     private suspend fun listLabels(): List<Label> {

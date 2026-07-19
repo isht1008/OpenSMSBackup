@@ -2,9 +2,9 @@
 
 ## Status
 
-**Implemented:** Gmail operations accept an email, Room rows are account-scoped, and `backup_accounts` can technically hold several records.
+**Implemented:** Room-backed profiles can be added, selected, reauthorized, and logically disconnected. Manual WorkManager backup captures the immutable profile ID at enqueue time and reloads that exact profile. Selecting another account cannot retarget active work. Settings queries WorkManager and refuses to disconnect the profile owning active work.
 
-**Partially implemented:** Preferences DataStore stores only one `backup_gmail_account`; UI connects, displays, changes, or locally disconnects that single account. The backup manager normalizes email as account ID and marks newly observed accounts default without a complete default-selection policy. Independent configuration is absent.
+**Partially implemented:** Only one global Gmail backup is exposed at a time, although unique names and tags are profile-scoped. Snapshot ownership still normalizes account email internally. Independent per-profile manual options, schedules, encryption, and destination policy are absent.
 
 **Planned:** A profile list where every Google account owns separate Gmail/Drive destinations, mode, label policy, contact-name preference, schedule, encryption settings, checkpoints, health, and retry queue. Switching profiles must not reuse credentials, labels, hashes, or remote IDs from another profile.
 
@@ -15,3 +15,5 @@
 - **Delete cloud backups:** a separate destructive workflow requiring explicit confirmation; never bundle it with disconnect or revocation.
 
 Account email may be useful as a key today, but future identity should prefer an immutable Google account identifier while treating email as mutable display data.
+
+Active-work protection is durable: WorkManager is authoritative after Activity/process recreation. The in-memory `GmailBackupSession` is only a worker-local collision guard and is never the sole disconnect decision.

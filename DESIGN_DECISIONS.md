@@ -22,10 +22,16 @@ Archive is the recommended default: preserve remote backups when device messages
 
 Restore is deferred until multi-account behavior, stable identity, index rebuild, retry/resume, complete manual backup, automation, Drive state, large-data behavior, encryption, export surfaces, and health reporting are stable.
 
+### Durable manual Gmail execution
+
+Manual Gmail backup is unique WorkManager work named by immutable profile ID. The worker, not `HomeViewModel`, owns the long-running backup and foreground lifetime. WorkManager progress/output are the durable UI source; the notification and app cancel the exact work ID. Current UI permits one global active Gmail backup, while names/tags remain profile-scoped for future account automation.
+
+Sprint 2B retries remain operation-local. The worker returns typed logical aborts with `Result.success`, infrastructure/input failures with `Result.failure`, and never uses `Result.retry`: restarting the entire worker could duplicate a Gmail insertion whose response was lost.
+
 ## Current compromises
 
 - Android `threadId` is used as conversation identity.
-- Account ID is normalized Gmail email; only one active email is stored in DataStore.
+- Snapshot account ID remains normalized Gmail email, while account selection and worker ownership use immutable profile IDs.
 - Gmail backup UI uploads at most three changed conversations for safety/testing.
 - Local JSON is format 2; Gmail conversation attachments are format 3. Compatibility is not yet unified.
 - `gmail.modify` is required because labels are created and old snapshots are moved to Trash.

@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
+import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkCoordinator
 
 
 class SettingsViewModelFactory(
     private val gmailAccountManager: GmailAccountManager,
-    private val gmailAccountCoordinator: GmailAccountCoordinator
+    private val gmailAccountCoordinator: GmailAccountCoordinator,
+    private val gmailBackupWorkCoordinator: GmailBackupWorkCoordinator
 ) : ViewModelProvider.Factory {
 
 
@@ -26,7 +28,8 @@ class SettingsViewModelFactory(
             @Suppress("UNCHECKED_CAST")
             return SettingsViewModel(
                 gmailAccountManager,
-                gmailAccountCoordinator
+                gmailAccountCoordinator,
+                gmailBackupWorkCoordinator
             ) as T
         }
 

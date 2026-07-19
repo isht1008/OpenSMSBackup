@@ -37,14 +37,14 @@ class GmailBackupManager {
         accountProfile: AccountProfileEntity,
         includeContactNames: Boolean,
         maxConversations: Int? = null,
-        onProgress: (
+        onProgress: suspend (
             current: Int,
             total: Int,
             uploaded: Int,
             skipped: Int,
             failed: Int
         ) -> Unit,
-        onRetry: (attempt: Int, maximumAttempts: Int) -> Unit = { _, _ -> }
+        onRetry: suspend (attempt: Int, maximumAttempts: Int) -> Unit = { _, _ -> }
     ): Result<GmailBackupCompletion> {
 
         return withContext(Dispatchers.IO) {
@@ -403,6 +403,7 @@ class GmailBackupManager {
                         unchanged = skipped,
                         failed = failed,
                         reason = abortFailure?.userMessage,
+                        profileId = accountProfile.profileId,
                         accountEmail = trimmedEmail,
                         failure = abortFailure,
                         totalMessages = messages.size,
@@ -434,6 +435,7 @@ class GmailBackupManager {
                         unchanged = 0,
                         failed = 0,
                         reason = failure.userMessage,
+                        profileId = accountProfile.profileId,
                         accountEmail = accountProfile.accountEmail,
                         failure = failure,
                         totalMessages = knownMessageTotal

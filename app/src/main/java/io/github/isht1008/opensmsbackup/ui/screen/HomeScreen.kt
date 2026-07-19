@@ -1,6 +1,7 @@
 package io.github.isht1008.opensmsbackup.ui.screen
 
 import android.Manifest
+import android.os.Build
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -88,6 +89,12 @@ fun HomeScreen(
                 viewModel.backupSmsToGmail(
                     context = context,
                     includeContactNames = hasContactsPermission(),
+                    notificationsEnabled =
+                        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.POST_NOTIFICATIONS
+                            ) == PackageManager.PERMISSION_GRANTED,
                     maxConversations = 3
                 )
             }
@@ -130,6 +137,15 @@ fun HomeScreen(
                 )
             }
 
+            if (
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                permissions[Manifest.permission.POST_NOTIFICATIONS] == false
+            ) {
+                viewModel.updateStatus(
+                    "Notification permission was denied. Android may hide Gmail backup progress from the notification drawer, but the foreground backup can continue."
+                )
+            }
+
             startPendingBackup()
         }
 
@@ -142,7 +158,15 @@ fun HomeScreen(
 
         pendingBackupAction = action
 
-        if (hasSmsPermission()) {
+        val notificationPermissionNeeded =
+            action == PendingBackupAction.GMAIL &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+
+        if (hasSmsPermission() && !notificationPermissionNeeded) {
             startPendingBackup()
             return
         }
@@ -151,12 +175,17 @@ fun HomeScreen(
             "Requesting SMS permission..."
         )
 
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.READ_SMS,
-                Manifest.permission.READ_CONTACTS
-            )
+        val permissions = mutableListOf(
+            Manifest.permission.READ_SMS,
+            Manifest.permission.READ_CONTACTS
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions += Manifest.permission.POST_NOTIFICATIONS
+            viewModel.updateStatus(
+                "Notifications show background Gmail backup progress and provide a Cancel action."
+            )
+        }
+        permissionLauncher.launch(permissions.toTypedArray())
     }
 
     Surface(
@@ -254,8 +283,9 @@ fun HomeScreen(
                             "Cancelling Gmail Backup…"
                         } else {
                             "Cancel Gmail Backup"
-                        },
-                    onClick = viewModel::cancelGmailBackup
+                    },
+                    onClick = viewModel::cancelGmailBackup,
+                    enabled = viewModel.gmailBackupUiState.isCancellable
                 )
             }
 
@@ -308,7 +338,17 @@ fun HomeScreen(
                     modifier = Modifier.height(32.dp)
                 )
 
-                LinearProgressIndicator()
+                val gmailState = viewModel.gmailBackupUiState
+                if (
+                    viewModel.isGmailBackingUp &&
+                    gmailState.fraction != null
+                ) {
+                    LinearProgressIndicator(
+                        progress = { gmailState.fraction }
+                    )
+                } else {
+                    LinearProgressIndicator()
+                }
 
                 Spacer(
                     modifier = Modifier.height(8.dp)
@@ -317,7 +357,19 @@ fun HomeScreen(
                 Text(
                     text =
                         if (viewModel.isGmailBackingUp) {
-                            "Uploading conversations to Gmail..."
+                            buildString {
+                                append("Gmail Backup")
+                                gmailState.accountEmail?.let {
+                                    append("\nAccount: $it")
+                                }
+                                if (gmailState.total > 0) {
+                                    append("\nChecked: ${gmailState.checked} / ${gmailState.total}")
+                                    append("\nUploaded: ${gmailState.uploaded}")
+                                    append("\nUnchanged: ${gmailState.unchanged}")
+                                    append("\nFailed: ${gmailState.failed}")
+                                }
+                                append("\nStatus: ${gmailState.phase}")
+                            }
                         } else {
                             "Creating local backup..."
                         }

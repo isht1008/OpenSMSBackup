@@ -151,6 +151,8 @@ dependencies {
 
     implementation(libs.androidx.room.ktx)
 
+    implementation(libs.androidx.work.runtime.ktx)
+
     kapt(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)

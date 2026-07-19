@@ -5,7 +5,8 @@ Status is relative to the conversation-snapshot branch. Each stage depends on th
 ## Stage 0 — Current foundation (implemented/partial)
 
 - **Implemented:** SMS/contact reads, local JSON export/history, Gmail auth foundation, conversation MIME snapshots, Room v2 hash tracking, safe upload-before-Trash ordering.
-- **Partial:** Gmail is limited to a three-change test action; single active account only; minimal tests and diagnostics.
+- **Implemented:** Multi-account management, bounded Gmail error handling, cancellable WorkManager foreground execution, notification progress/cancel, and lifecycle-safe progress restoration.
+- **Partial:** Gmail remains limited to a three-change manual action; exact resume, remote deduplication, and independent account configuration are absent.
 
 ## Stage 1 — Identity, policy, and account foundation
 
@@ -24,6 +25,8 @@ Depends on Stage 1.
 - Add durable per-conversation retry/resume, idempotency, cancellation, and large-conversation batching/size handling.
 - Rebuild the local Gmail index after reinstall by querying labels and OpenSMSBackup headers/attachments.
 - Detect remote/local divergence according to archive or mirror policy.
+
+Sprint 3A will add per-account manual backup configuration. Sprint 3B will add per-account periodic WorkManager requests and constraints using the same profile-bound worker contract; neither is implemented in Sprint 2C.
 
 ## Stage 3 — Portable app state
 

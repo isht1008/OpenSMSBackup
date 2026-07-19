@@ -19,6 +19,7 @@ data class GmailBackupCompletion(
     val failed: Int,
     val remaining: Int = (total - checked).coerceAtLeast(0),
     val reason: String? = null,
+    val profileId: String? = null,
     val accountEmail: String? = null,
     val failure: GmailFailure? = null,
     val totalMessages: Int = 0,

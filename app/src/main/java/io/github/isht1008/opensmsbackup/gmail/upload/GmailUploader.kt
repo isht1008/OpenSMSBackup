@@ -15,7 +15,7 @@ class GmailUploader(
     private val gmail: Gmail,
     private val profileId: String,
     private val retryPolicy: GmailRetryPolicy = GmailRetryPolicy(),
-    private val onRetry: (Int, Int) -> Unit = { _, _ -> },
+    private val onRetry: suspend (Int, Int) -> Unit = { _, _ -> },
     private val labelManager: GmailLabelManager =
         GmailLabelManager(
             gmail = gmail,

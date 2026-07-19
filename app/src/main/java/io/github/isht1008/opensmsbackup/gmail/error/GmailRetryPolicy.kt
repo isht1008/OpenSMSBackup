@@ -16,7 +16,7 @@ class GmailRetryPolicy(
     suspend fun <T> execute(
         operationName: String,
         profileId: String,
-        onRetry: (attempt: Int, maximumAttempts: Int) -> Unit = { _, _ -> },
+        onRetry: suspend (attempt: Int, maximumAttempts: Int) -> Unit = { _, _ -> },
         operation: suspend () -> T
     ): T {
         require(maximumAttempts > 0)

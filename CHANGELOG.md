@@ -1,5 +1,34 @@
 # Changelog
 
+## Sprint 2C — Durable Foreground Gmail Backup
+
+### Added
+
+- WorkManager-backed, profile-bound manual Gmail backup.
+- Foreground progress notification with an exact-work Cancel action.
+- Centralized immutable input, progress, and terminal output contracts.
+- Added `BackupExecutionMode` (`MANUAL`/future `SCHEDULED`) to the immutable worker input without enabling schedules.
+- Unique profile work names, global/profile/manual tags, and duplicate-job prevention.
+- WorkInfo-based progress restoration after Activity or process recreation.
+
+### Changed
+
+- `HomeViewModel` now enqueues, observes, and cancels WorkManager work instead of owning the long-running backup coroutine.
+- Settings disconnect protection now checks WorkManager, while `GmailBackupSession` is only a worker-local convenience guard.
+- Android 13+ notification permission is requested with the manual Gmail backup flow.
+- Denying notification permission now skips foreground notification initialization and continues the backup without retrying.
+
+### Preserved
+
+- Sprint 2B bounded operation retry and early abort; WorkManager never restarts the full Gmail backup with `Result.retry`.
+- No automatic Gmail upload retry, preserving duplicate-upload safeguards.
+- Partial Room/Gmail progress, upload-before-Trash ordering, cancellation, and immutable multi-account binding.
+
+### Known limitations
+
+- No recurring schedules, exact per-conversation resume, or remote upload deduplication.
+- Per-account manual configuration remains planned for Sprint 3A; recurring schedules and constraints remain planned for Sprint 3B.
+
 ## Sprint 2B — Intelligent Gmail Failure Handling
 
 - Added structured Gmail failure categories with HTTP status, Google reason, retryability, abort, reauthorization, and Retry-After metadata.
