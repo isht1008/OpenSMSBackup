@@ -44,6 +44,16 @@ class GmailBackupWorkCoordinatorTest {
         assertTrue(request.tags.contains(GmailBackupWorkContract.profileTag("profile-a")))
     }
 
+    @Test fun `normal production Gmail backup has no conversation limit`() = runBlocking {
+        val gateway = FakeGateway()
+
+        coordinator(gateway).enqueueManual("profile-a", true, null)
+
+        val request = requireNotNull(gateway.enqueuedRequest)
+        val input = requireNotNull(GmailBackupWorkContract.readInput(request.workSpec.input))
+        assertNull(input.maximumConversations)
+    }
+
     @Test fun `cancel targets exact work request`() {
         val gateway = FakeGateway()
         val workId = UUID.randomUUID()

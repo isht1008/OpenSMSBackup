@@ -12,6 +12,10 @@ import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecovera
 import io.github.isht1008.opensmsbackup.backup.BackupHistoryRepository
 import io.github.isht1008.opensmsbackup.backup.BackupManager
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
+import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
+import io.github.isht1008.opensmsbackup.account.data.GmailBackupModeController
+import io.github.isht1008.opensmsbackup.account.data.GmailBackupModeUiState
+import io.github.isht1008.opensmsbackup.account.data.MultiAccountRepository
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
@@ -43,6 +47,9 @@ class HomeViewModel(
     private val gmailWorkCoordinator =
         GmailBackupWorkCoordinator(application)
     private val verificationCoordinator = BackupVerificationWorkCoordinator(application)
+    private val backupModeController = GmailBackupModeController(
+        MultiAccountRepository.create(application)
+    )
 
     var status by mutableStateOf("Ready")
         private set
@@ -73,6 +80,8 @@ class HomeViewModel(
         private set
 
     var gmailBackupProgress by mutableStateOf(0f)
+        private set
+    var gmailBackupModeUiState by mutableStateOf(GmailBackupModeUiState())
         private set
     var latestVerification by mutableStateOf<BackupVerificationEntity?>(null)
         private set
@@ -130,8 +139,61 @@ class HomeViewModel(
                     .getSelectedAccountProfile()
 
             updateAccountStatus(profile)
+            refreshGmailBackupMode(profile)
             loadLatestVerification(profile)
         }
+    }
+
+    private suspend fun refreshGmailBackupMode(profile: AccountProfileEntity?) {
+        gmailBackupModeUiState = GmailBackupModeUiState(
+            profileId = profile?.profileId,
+            isLoading = profile != null
+        )
+        backupModeController.load(profile?.profileId)
+        gmailBackupModeUiState = backupModeController.state
+    }
+
+    fun selectGmailBackupMode(mode: GmailBackupMode) {
+        val shouldSaveArchive = backupModeController.requestSelection(
+            mode = mode,
+            backupActive = isGmailBackingUp
+        )
+        gmailBackupModeUiState = backupModeController.state
+        if (!shouldSaveArchive) return
+        gmailBackupModeUiState = gmailBackupModeUiState.copy(
+            isSaving = true,
+            errorMessage = null
+        )
+        viewModelScope.launch {
+            val saved = backupModeController.saveArchive(isGmailBackingUp)
+            gmailBackupModeUiState = backupModeController.state
+            updateStatus(
+                if (saved) "Gmail backup mode set to Archive."
+                else backupModeController.state.errorMessage ?: "Gmail backup mode was not changed."
+            )
+        }
+    }
+
+    fun confirmMirrorBackupMode() {
+        if (isGmailBackingUp || !gmailBackupModeUiState.mirrorConfirmationPending) return
+        gmailBackupModeUiState = gmailBackupModeUiState.copy(
+            isSaving = true,
+            mirrorConfirmationPending = false,
+            errorMessage = null
+        )
+        viewModelScope.launch {
+            val saved = backupModeController.confirmMirror(isGmailBackingUp)
+            gmailBackupModeUiState = backupModeController.state
+            updateStatus(
+                if (saved) "Gmail backup mode set to Mirror."
+                else backupModeController.state.errorMessage ?: "Gmail backup mode was not changed."
+            )
+        }
+    }
+
+    fun cancelMirrorBackupMode() {
+        backupModeController.cancelMirrorConfirmation()
+        gmailBackupModeUiState = backupModeController.state
     }
 
     private suspend fun loadLatestVerification(
@@ -349,7 +411,7 @@ class HomeViewModel(
         context: Context,
         includeContactNames: Boolean,
         notificationsEnabled: Boolean = true,
-        maxConversations: Int? = 3
+        maxConversations: Int? = null
     ) {
         if (gmailBackupUiState.isActive || isBackingUp) {
             updateStatus("A Gmail backup is already running.")
@@ -443,6 +505,10 @@ class HomeViewModel(
         )
         gmailBackupCompletion = completion
         isGmailBackingUp = gmailBackupUiState.isActive
+        if (isGmailBackingUp && backupModeController.state.mirrorConfirmationPending) {
+            backupModeController.cancelMirrorConfirmation()
+            gmailBackupModeUiState = backupModeController.state
+        }
         isGmailBackupCancellationRequested = gmailBackupUiState.stage == GmailBackupUiStage.CANCELLING
         gmailBackupProgress = gmailBackupUiState.fraction ?: 0f
         status = buildGmailWorkStatus(gmailBackupUiState)

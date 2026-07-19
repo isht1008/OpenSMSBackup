@@ -36,7 +36,7 @@ data class AccountSettingsEntity(
     val includeContactNames: Boolean = true,
 
     @ColumnInfo(name = "backup_mode")
-    val backupMode: String = GmailBackupMode.MIRROR.name,
+    val backupMode: String = GmailBackupMode.ARCHIVE_APPEND_ONLY.name,
 
     @ColumnInfo(name = "backup_label")
     val backupLabel: String = "SMS",

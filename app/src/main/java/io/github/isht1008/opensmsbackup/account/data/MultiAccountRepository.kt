@@ -12,7 +12,7 @@ import java.util.UUID
 class MultiAccountRepository(
     private val accountDao: AccountProfileDao,
     private val selectedProfileStore: SelectedProfileStore
-) {
+) : GmailBackupModeStore {
 
     fun observeProfiles(): Flow<List<AccountProfileEntity>> {
         return accountDao.observeProfiles()
@@ -34,14 +34,14 @@ class MultiAccountRepository(
         )
     }
 
-    suspend fun getBackupMode(
+    override suspend fun getBackupMode(
         profileId: String
     ): GmailBackupMode =
         GmailBackupMode.fromStorage(
             accountDao.findSettings(profileId)?.backupMode
         )
 
-    suspend fun setBackupMode(
+    override suspend fun setBackupMode(
         profileId: String,
         mode: GmailBackupMode
     ) {

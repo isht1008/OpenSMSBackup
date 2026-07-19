@@ -6,6 +6,6 @@ enum class GmailBackupMode {
 
     companion object {
         fun fromStorage(value: String?): GmailBackupMode =
-            entries.firstOrNull { it.name == value } ?: MIRROR
+            entries.firstOrNull { it.name == value } ?: ARCHIVE_APPEND_ONLY
     }
 }

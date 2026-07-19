@@ -4,7 +4,9 @@
 
 **Implemented:** Snapshot replacement moves only a superseded Gmail snapshot to Trash after its replacement uploads. This is version replacement, not device-deletion mirroring.
 
-**Planned:** Archive and mirror policies. No mode setting or reconciliation engine exists today.
+**Implemented:** Archive and Mirror strategies and a per-account Home-screen mode selector. Archive is the default for newly created account settings; selecting Mirror requires an explicit warning confirmation.
+
+**Partially implemented:** Mirror uses the established safe snapshot replacement behavior. Broader deletion previews, thresholds, and reconciliation safeguards remain planned.
 
 ## Archive — recommended default
 

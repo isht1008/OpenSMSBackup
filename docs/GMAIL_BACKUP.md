@@ -6,7 +6,7 @@
 
 Room v2 stores `(account_id, android_thread_id)`, snapshot hash, Gmail message/thread IDs, range, count, and backup time. Unchanged hashes are skipped. For changes, the new snapshot uploads first, Room is updated second, and the previous Gmail message is moved to Trash last. Trash failure is a warning and never rolls back the valid new snapshot.
 
-**Partially implemented:** The home-screen action is explicitly a test capped at three changed conversations. It now runs durably as foreground WorkManager work, but exact checkpoint resume and recurring scheduling are absent. Existing per-message MIME/fingerprint/database code remains from the earlier design but is not the active manager path. Labels for inbox/sent/drafts/failed are created but unused by conversation upload.
+**Partially implemented:** The home-screen action runs a full manual backup durably as foreground WorkManager work, but exact checkpoint resume and recurring scheduling are absent. Existing per-message MIME/fingerprint/database code remains from the earlier design but is not the active manager path. Labels for inbox/sent/drafts/failed are created but unused by conversation upload.
 
 **Planned:** Full Backup Now, stable identity, per-account settings, retry/resume, large-conversation handling, Gmail index reconstruction, archive/mirror reconciliation, health reporting, and encryption where appropriate.
 
@@ -62,7 +62,9 @@ On the primary device, verify background progress after minimizing, swiping rece
 
 **Implemented:** Archive discovery treats Room's Gmail message ID as a cache. It validates that message first, then falls back to a bounded `SMS/Conversations` label search and selects the newest valid format-v3 snapshot matching normalized conversation and account identity. Valid recovery repairs the Room cache. New snapshots include a deterministic `X-OpenSMSBackup-Conversation-Key`; older format-v3 snapshots remain discoverable through label-scoped attachment validation.
 
-**Partially implemented:** No UI exposes mode selection. Full remote index reconstruction remains planned. Number normalization is deterministic but does not yet infer missing country codes.
+**Implemented:** Home exposes the selected account's persisted mode. Archive saves immediately and is the default for newly created settings; Mirror requires explicit warning confirmation. Existing stored modes are retained.
+
+**Partially implemented:** Full remote index reconstruction remains planned.
 
 ## Sprint 3C device namespaces
 

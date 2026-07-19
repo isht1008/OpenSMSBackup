@@ -22,8 +22,8 @@ OpenSMSBackup is an Android 12+ privacy-first SMS backup app. The current code r
 
 **Partially implemented**
 
-- Gmail backup remains a manual test action capped at three changed conversations. Execution is durable, but exact per-conversation resume after worker interruption and remote deduplication are absent.
-- Multiple accounts can be managed, selected, reauthorized, and logically disconnected. Independent per-account backup configuration and actual OAuth revocation are absent.
+- Gmail backup is a full manual action. Execution is durable, but exact per-conversation resume after worker interruption and remote deduplication are absent.
+- Multiple accounts can be managed, selected, reauthorized, and logically disconnected. Backup mode is independently persisted per account; actual OAuth revocation remains absent.
 - Gmail labels are created, but conversation uploads use only `SMS` and `SMS/Conversations`.
 - Local backup history and Gmail verification history are presented together in Backup Health; local files still use a separate schema and do not persist backup start/duration metadata.
 - Stable identity uses account email plus Android `threadId`; that ID is not portable across devices/reinstalls.

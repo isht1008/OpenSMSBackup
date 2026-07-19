@@ -40,7 +40,7 @@ Gmail is the verification source of truth. Verification consumes V1/V2 message a
 
 - Android `threadId` is used as conversation identity.
 - Snapshot account ID remains normalized Gmail email, while account selection and worker ownership use immutable profile IDs.
-- Gmail backup UI uploads at most three changed conversations for safety/testing.
+- Gmail backup mode is selected per account. Archive is the default for newly created settings; Mirror requires an explicit warning confirmation.
 - Local JSON is format 2; Gmail conversation attachments are format 3. Compatibility is not yet unified.
 - `gmail.modify` is required because labels are created and old snapshots are moved to Trash.
 

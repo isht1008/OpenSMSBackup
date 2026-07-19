@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -35,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.StatusCard
+import io.github.isht1008.opensmsbackup.ui.component.GmailBackupModeSection
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 import java.text.DateFormat
 import java.util.Date
@@ -98,7 +101,7 @@ fun HomeScreen(
                                 context,
                                 Manifest.permission.POST_NOTIFICATIONS
                             ) == PackageManager.PERMISSION_GRANTED,
-                    maxConversations = 3
+                    maxConversations = null
                 )
             }
 
@@ -296,12 +299,20 @@ fun HomeScreen(
                 modifier = Modifier.height(16.dp)
             )
 
+            GmailBackupModeSection(
+                state = viewModel.gmailBackupModeUiState,
+                backupActive = viewModel.isGmailBackingUp,
+                onModeSelected = viewModel::selectGmailBackupMode
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             PrimaryButton(
                 text =
                     if (viewModel.isGmailBackingUp) {
                         "Backing up to Gmail..."
                     } else {
-                        "Test Gmail Backup - 3 Conversations"
+                        "Back up to Gmail"
                     },
                 onClick = {
                     requestPermissionsAndRun(
@@ -422,5 +433,27 @@ fun HomeScreen(
                 text = "Version 0.3.0"
             )
         }
+    }
+
+    if (viewModel.gmailBackupModeUiState.mirrorConfirmationPending) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelMirrorBackupMode,
+            title = { Text("Use Mirror mode?") },
+            text = {
+                Text(
+                    "Mirror keeps Gmail aligned with the latest SMS state. " +
+                        "It can replace or move older backup snapshots to Trash according to the existing mirror behavior."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::confirmMirrorBackupMode,
+                    enabled = !viewModel.isGmailBackingUp
+                ) { Text("Use Mirror") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelMirrorBackupMode) { Text("Cancel") }
+            }
+        )
     }
 }
