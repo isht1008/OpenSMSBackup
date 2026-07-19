@@ -6,6 +6,7 @@ import io.github.isht1008.opensmsbackup.gmail.mime.ConversationMimeMessageBuilde
 import io.github.isht1008.opensmsbackup.gmail.model.SmsEmail
 import io.github.isht1008.opensmsbackup.gmail.upload.GmailUploadResult
 import io.github.isht1008.opensmsbackup.gmail.upload.GmailUploader
+import io.github.isht1008.opensmsbackup.device.DeviceProfile
 
 class ArchiveAppendBackupStrategy(
     private val locateArchive: suspend (
@@ -16,6 +17,7 @@ class ArchiveAppendBackupStrategy(
     private val persistSnapshot: suspend (ConversationSnapshotEntity) -> Unit,
     private val accountId: String,
     private val accountEmail: String,
+    private val deviceProfile: DeviceProfile? = null,
     private val merger: ArchiveConversationMerger = ArchiveConversationMerger(),
     private val emailBuilder: ConversationMimeMessageBuilder = ConversationMimeMessageBuilder()
 ) : BackupStrategy {
@@ -24,13 +26,15 @@ class ArchiveAppendBackupStrategy(
         uploader: GmailUploader,
         snapshotDao: ConversationSnapshotDao,
         accountId: String,
-        accountEmail: String
+        accountEmail: String,
+        deviceProfile: DeviceProfile
     ) : this(
         locateArchive = locator::locate,
         uploadConversation = uploader::uploadConversation,
         persistSnapshot = { snapshotDao.insert(it) },
         accountId = accountId,
-        accountEmail = accountEmail
+        accountEmail = accountEmail,
+        deviceProfile = deviceProfile
     )
 
     override suspend fun execute(
@@ -80,7 +84,8 @@ class ArchiveAppendBackupStrategy(
         val mergedEmail = emailBuilder.build(
             conversation = merge.conversation,
             accountEmail = accountEmail,
-            snapshotHash = mergedHash
+            snapshotHash = mergedHash,
+            deviceProfile = deviceProfile
         )
         val uploadResult = uploadConversation(mergedEmail)
         val gmailResult = uploadResult.getOrNull() ?: return uploadResult

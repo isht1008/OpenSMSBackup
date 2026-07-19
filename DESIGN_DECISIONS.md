@@ -28,6 +28,10 @@ Manual Gmail backup is unique WorkManager work named by immutable profile ID. Th
 
 Sprint 2B retries remain operation-local. The worker returns typed logical aborts with `Result.success`, infrastructure/input failures with `Result.failure`, and never uses `Result.retry`: restarting the entire worker could duplicate a Gmail insertion whose response was lost.
 
+### Installation-scoped device namespaces
+
+Every installation owns a random UUID Device Profile stored independently of Gmail accounts. Gmail labels are readable aliases; device headers and V2 conversation identity are authoritative. Legacy V1 archives may be continued only through a matching pre-upgrade Room cache. A foreign or unowned legacy snapshot is never automatically claimed, merged, replaced, or moved to Trash.
+
 ## Current compromises
 
 - Android `threadId` is used as conversation identity.

@@ -5,7 +5,6 @@ import com.google.api.services.gmail.model.MessagePart
 import io.github.isht1008.opensmsbackup.gmail.error.GmailOperationException
 import io.github.isht1008.opensmsbackup.gmail.error.GmailRetryPolicy
 import io.github.isht1008.opensmsbackup.gmail.header.OpenSmsHeaders
-import io.github.isht1008.opensmsbackup.gmail.label.GmailLabelManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,13 +16,7 @@ class GmailArchivedConversationReader(
     private val profileId: String,
     private val retryPolicy: GmailRetryPolicy = GmailRetryPolicy(),
     private val onRetry: suspend (Int, Int) -> Unit = { _, _ -> },
-    private val parser: ArchivedConversationParser = ArchivedConversationParser(),
-    private val labelManager: GmailLabelManager = GmailLabelManager(
-        gmail = gmail,
-        profileId = profileId,
-        retryPolicy = retryPolicy,
-        onRetry = onRetry
-    )
+    private val parser: ArchivedConversationParser = ArchivedConversationParser()
 ) : GmailArchiveLookup {
     override suspend fun read(messageId: String): Result<GmailArchiveDocument> =
         withContext(Dispatchers.IO) {
@@ -67,7 +60,13 @@ class GmailArchivedConversationReader(
                             ?.firstOrNull {
                                 it.name.equals(OpenSmsHeaders.CONVERSATION_KEY, ignoreCase = true)
                             }?.value,
-                        conversation = parsed.conversation
+                        conversation = parsed.conversation,
+                        deviceIdHeader = header(message.payload, OpenSmsHeaders.DEVICE_ID),
+                        identityVersionHeader = header(
+                            message.payload,
+                            OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION
+                        ),
+                        labelIds = message.labelIds.orEmpty().toSet()
                     )
                 )
             } catch (cancellation: CancellationException) {
@@ -78,17 +77,17 @@ class GmailArchivedConversationReader(
         }
 
     override suspend fun search(
-        conversationKey: String
+        conversationKey: String,
+        deviceLabelId: String
     ): Result<List<GmailArchiveCandidate>> = withContext(Dispatchers.IO) {
         try {
-            val labelId = labelManager.ensureLabels().conversations
             val keyed = listMessages(
-                labelId = labelId,
+                labelId = deviceLabelId,
                 query = "\"${OpenSmsHeaders.CONVERSATION_KEY}: $conversationKey\"",
                 maximum = KEYED_CANDIDATE_LIMIT
             )
             val legacy = listMessages(
-                labelId = labelId,
+                labelId = deviceLabelId,
                 query = null,
                 maximum = TOTAL_CANDIDATE_LIMIT
             )
@@ -133,6 +132,9 @@ class GmailArchivedConversationReader(
         ) return part
         return part.parts.orEmpty().firstNotNullOfOrNull(::findSnapshotPart)
     }
+
+    private fun header(part: MessagePart?, name: String): String? =
+        part?.headers?.firstOrNull { it.name.equals(name, ignoreCase = true) }?.value
 
     private fun mapReadFailure(error: Exception): Throwable {
         if (error is GmailOperationException && error.failure.httpStatusCode == 404) {

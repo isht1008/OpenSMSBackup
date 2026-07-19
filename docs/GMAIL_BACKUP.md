@@ -63,3 +63,13 @@ On the primary device, verify background progress after minimizing, swiping rece
 **Implemented:** Archive discovery treats Room's Gmail message ID as a cache. It validates that message first, then falls back to a bounded `SMS/Conversations` label search and selects the newest valid format-v3 snapshot matching normalized conversation and account identity. Valid recovery repairs the Room cache. New snapshots include a deterministic `X-OpenSMSBackup-Conversation-Key`; older format-v3 snapshots remain discoverable through label-scoped attachment validation.
 
 **Partially implemented:** No UI exposes mode selection. Full remote index reconstruction remains planned. Number normalization is deterministic but does not yet infer missing country codes.
+
+## Sprint 3C device namespaces
+
+**Implemented:** Each installation owns a UUID-backed `DeviceProfile` in a dedicated DataStore. The UUID is random, uses no hardware identifier, survives normal upgrades, and can change after app-data deletion or reinstall. New Gmail snapshots carry device ID/name plus archive identity version 2 headers. V2 conversation keys include normalized account, device ID, and normalized address.
+
+Both mirror and archive uploads use `SMS/Devices/<sanitized device display>/Conversations`. The per-account Gmail label ID is cached locally and remains authoritative across friendly-name edits; the existing label is renamed in place after the new parent path is confirmed. Old empty parent labels are retained rather than deleted. Label cleanup and large migrations are deferred.
+
+Archive search is restricted to the current device label and rejects another device ID. Legacy V1 snapshots are readable only through an existing matching Room cache; label search never allows a new device to claim an unowned V1 archive. Mirror replacement validates V2 account/device/conversation/label ownership before Trash, so legacy or foreign-device messages are preserved.
+
+**Partially implemented:** Device marketing names use Android's available manufacturer/model metadata; no external marketing-name catalog is bundled. Reinstall/app-data deletion starts a new device identity. Archive History and cross-device merge remain deferred.

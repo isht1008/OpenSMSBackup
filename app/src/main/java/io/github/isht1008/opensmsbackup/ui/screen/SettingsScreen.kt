@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +29,7 @@ import io.github.isht1008.opensmsbackup.ui.component.SettingCard
 import io.github.isht1008.opensmsbackup.ui.component.TopBar
 import io.github.isht1008.opensmsbackup.viewmodel.SettingsViewModel
 import io.github.isht1008.opensmsbackup.viewmodel.SettingsViewModelFactory
+import io.github.isht1008.opensmsbackup.device.DeviceProfileStore
 
 @Composable
 fun SettingsScreen(
@@ -40,7 +42,8 @@ fun SettingsScreen(
             factory = SettingsViewModelFactory(
                 GmailAccountManager(context),
                 GmailAccountCoordinator(context),
-                GmailBackupWorkCoordinator(context)
+                GmailBackupWorkCoordinator(context),
+                DeviceProfileStore.create(context)
             )
         )
 
@@ -63,6 +66,43 @@ fun SettingsScreen(
                 ),
             verticalArrangement = Arrangement.Top
         ) {
+            Text(
+                text = "Device",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            viewModel.deviceProfile?.let { device ->
+                Spacer(Modifier.height(12.dp))
+                Text("Model: ${device.manufacturer} ${device.model}")
+                Text("Android ${device.androidVersion} • Device ${device.shortId}")
+                Text("Primary: ${device.maskedPrimaryPhoneNumber ?: "Not set"}")
+                device.secondaryPhoneNumber?.let {
+                    Text("Secondary: ${io.github.isht1008.opensmsbackup.device.DeviceDisplayName.maskedNumber(it)}")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = viewModel.deviceNameDraft,
+                    onValueChange = { viewModel.deviceNameDraft = it },
+                    label = { Text("Device name") }
+                )
+                OutlinedTextField(
+                    value = viewModel.primaryPhoneDraft,
+                    onValueChange = { viewModel.primaryPhoneDraft = it },
+                    label = { Text("Replace primary number (optional)") }
+                )
+                OutlinedTextField(
+                    value = viewModel.secondaryPhoneDraft,
+                    onValueChange = { viewModel.secondaryPhoneDraft = it },
+                    label = { Text("Replace secondary number (optional)") }
+                )
+                Text("Gmail: ${viewModel.deviceLabelPreview}")
+                Spacer(Modifier.height(8.dp))
+                PrimaryButton("Save Device", viewModel::saveDeviceProfile)
+                viewModel.deviceSaveMessage?.let { Text(it) }
+            }
+
+            Spacer(Modifier.height(28.dp))
+
             Text(
                 text = "Backup Gmail Accounts",
                 style = MaterialTheme.typography.titleLarge,

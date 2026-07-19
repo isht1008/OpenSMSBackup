@@ -17,3 +17,7 @@
 Account email may be useful as a key today, but future identity should prefer an immutable Google account identifier while treating email as mutable display data.
 
 Active-work protection is durable: WorkManager is authoritative after Activity/process recreation. The in-memory `GmailBackupSession` is only a worker-local collision guard and is never the sole disconnect decision.
+
+## Device ownership
+
+**Implemented:** The local Device Profile belongs to the installation and is shared consistently across every connected Gmail account. Each account caches its own Gmail device-label ID, while all accounts use the same immutable device ID and editable friendly metadata. Full manually entered phone numbers remain local; Gmail labels and ordinary Settings display use only the final five digits.

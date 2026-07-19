@@ -4,12 +4,17 @@ import com.google.api.services.gmail.Gmail
 import com.google.api.services.gmail.model.Label
 import io.github.isht1008.opensmsbackup.gmail.GmailConstants
 import io.github.isht1008.opensmsbackup.gmail.error.GmailRetryPolicy
+import io.github.isht1008.opensmsbackup.device.DeviceDisplayName
+import io.github.isht1008.opensmsbackup.device.DeviceProfile
 
 class GmailLabelManager(
     private val gmail: Gmail,
     private val profileId: String = "unknown",
     private val retryPolicy: GmailRetryPolicy = GmailRetryPolicy(),
-    private val onRetry: suspend (Int, Int) -> Unit = { _, _ -> }
+    private val onRetry: suspend (Int, Int) -> Unit = { _, _ -> },
+    private val deviceProfile: DeviceProfile? = null,
+    private val cachedDeviceLabelId: String? = null,
+    private val onDeviceLabelResolved: suspend (String) -> Unit = {}
 ) {
 
     private suspend fun listLabels(): List<Label> {
@@ -118,6 +123,51 @@ class GmailLabelManager(
                 GmailConstants.LABEL_SMS_FAILED
             )
 
+        val deviceConversations = deviceProfile?.let { profile ->
+            getOrCreateLabel(labels, "SMS/Devices")
+            val baseSegment = DeviceDisplayName.gmailLabelSegment(
+                profile.displayName,
+                profile.primaryPhoneNumber,
+                profile.deviceId,
+                requireStableSuffix = false
+            )
+            val basePath = "SMS/Devices/$baseSegment"
+            val cached = cachedDeviceLabelId?.let { id -> labels.firstOrNull { it.id == id } }
+            val desiredPath = "$basePath/Conversations"
+            val collision = labels.any { it.name == desiredPath && it.id != cached?.id }
+            val resolvedSegment = if (collision) {
+                DeviceDisplayName.gmailLabelSegment(
+                    profile.displayName,
+                    profile.primaryPhoneNumber,
+                    profile.deviceId,
+                    requireStableSuffix = true
+                )
+            } else baseSegment
+            val resolvedParent = "SMS/Devices/$resolvedSegment"
+            getOrCreateLabel(labels, resolvedParent)
+            val resolvedPath = "$resolvedParent/Conversations"
+            val label = if (cached != null) {
+                if (cached.name != resolvedPath) {
+                    retryPolicy.execute(
+                        operationName = "rename_device_label",
+                        profileId = profileId,
+                        onRetry = onRetry
+                    ) {
+                        gmail.users().labels().update(
+                            "me",
+                            requireNotNull(cached.id),
+                            Label().apply {
+                                name = resolvedPath
+                                labelListVisibility = "labelShow"
+                                messageListVisibility = "show"
+                            }
+                        ).execute()
+                    }
+                } else cached
+            } else getOrCreateLabel(labels, resolvedPath)
+            requireNotNull(label.id).also { onDeviceLabelResolved(it) }
+        }
+
         return GmailLabels(
             sms = requireNotNull(sms.id),
             conversations =
@@ -125,7 +175,8 @@ class GmailLabelManager(
             inbox = requireNotNull(inbox.id),
             sent = requireNotNull(sent.id),
             drafts = requireNotNull(drafts.id),
-            failed = requireNotNull(failed.id)
+            failed = requireNotNull(failed.id),
+            deviceConversations = deviceConversations
         )
     }
 }

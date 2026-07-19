@@ -16,6 +16,7 @@ OpenSMSBackup is an Android 12+ privacy-first SMS backup app. The current code r
 - Room database v3 with account profiles/settings plus legacy backup and conversation-snapshot tables; explicit migrations exist.
 - Incremental Gmail comparison using a SHA-256 snapshot hash. Replacement is uploaded and persisted before the previous message is moved to Trash.
 - Manual Gmail backup executes as unique profile-bound WorkManager foreground work; WorkInfo restores progress across Activity/process recreation and both app/notification cancellation target the exact request.
+- Installation-scoped Device Profiles isolate mirror and append-only Gmail namespaces using device labels, V2 conversation identity, and device ownership headers without hardware identifiers or phone permissions.
 
 **Partially implemented**
 

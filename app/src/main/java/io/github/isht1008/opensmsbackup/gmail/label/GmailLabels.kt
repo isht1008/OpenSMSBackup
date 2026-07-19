@@ -12,5 +12,7 @@ data class GmailLabels(
 
     val drafts: String,
 
-    val failed: String
+    val failed: String,
+
+    val deviceConversations: String? = null
 )

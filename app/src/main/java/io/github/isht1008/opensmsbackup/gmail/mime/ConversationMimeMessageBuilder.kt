@@ -2,6 +2,8 @@ package io.github.isht1008.opensmsbackup.gmail.mime
 
 import io.github.isht1008.opensmsbackup.gmail.backup.SmsConversationSnapshot
 import io.github.isht1008.opensmsbackup.gmail.backup.ArchiveConversationIdentity
+import io.github.isht1008.opensmsbackup.device.DeviceProfile
+import io.github.isht1008.opensmsbackup.device.DeviceDisplayName
 import io.github.isht1008.opensmsbackup.gmail.header.OpenSmsHeaders
 import io.github.isht1008.opensmsbackup.gmail.model.EmailAttachment
 import io.github.isht1008.opensmsbackup.gmail.model.SmsEmail
@@ -42,7 +44,8 @@ class ConversationMimeMessageBuilder {
     fun build(
         conversation: SmsConversationSnapshot,
         accountEmail: String,
-        snapshotHash: String
+        snapshotHash: String,
+        deviceProfile: DeviceProfile? = null
     ): SmsEmail {
 
         require(accountEmail.isNotBlank()) {
@@ -76,7 +79,8 @@ class ConversationMimeMessageBuilder {
             headers = buildHeaders(
                 conversation = conversation,
                 accountEmail = accountEmail,
-                snapshotHash = snapshotHash
+                snapshotHash = snapshotHash,
+                deviceProfile = deviceProfile
             ),
             htmlBody = buildHtmlBody(
                 conversation = conversation,
@@ -473,7 +477,8 @@ class ConversationMimeMessageBuilder {
     private fun buildHeaders(
         conversation: SmsConversationSnapshot,
         accountEmail: String,
-        snapshotHash: String
+        snapshotHash: String,
+        deviceProfile: DeviceProfile?
     ): Map<String, String> {
 
         val messageId =
@@ -537,11 +542,28 @@ class ConversationMimeMessageBuilder {
 
             put(
                 OpenSmsHeaders.CONVERSATION_KEY,
-                ArchiveConversationIdentity.key(
-                    conversation.address,
-                    accountEmail
-                )
+                if (deviceProfile == null) {
+                    ArchiveConversationIdentity.key(conversation.address, accountEmail)
+                } else {
+                    ArchiveConversationIdentity.key(
+                        ArchiveConversationIdentity.Version.V2_ACCOUNT_DEVICE_ADDRESS,
+                        conversation.address,
+                        accountEmail,
+                        deviceProfile.deviceId
+                    )
+                }
             )
+
+            if (deviceProfile != null) {
+                put(OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION, "2")
+                put(OpenSmsHeaders.DEVICE_ID, sanitizeHeaderValue(deviceProfile.deviceId))
+                put(
+                    OpenSmsHeaders.DEVICE_NAME,
+                    sanitizeHeaderValue(
+                        DeviceDisplayName.sanitizeLabelSegment(deviceProfile.displayName)
+                    )
+                )
+            }
 
             put(
                 OpenSmsHeaders.ACCOUNT,

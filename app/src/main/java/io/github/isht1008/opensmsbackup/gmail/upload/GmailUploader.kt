@@ -24,11 +24,12 @@ class GmailUploader(
             onRetry = onRetry
         ),
     private val messageEncoder: GmailMessageEncoder =
-        GmailMessageEncoder()
+        GmailMessageEncoder(),
+    initialLabels: GmailLabels? = null
 ) {
 
     private var cachedLabels: GmailLabels? =
-        null
+        initialLabels
 
     suspend fun uploadConversation(
         email: SmsEmail
@@ -43,7 +44,7 @@ class GmailUploader(
                 val labelIds =
                     listOf(
                         labels.sms,
-                        labels.conversations
+                        labels.deviceConversations ?: labels.conversations
                     ).distinct()
 
                 val message =

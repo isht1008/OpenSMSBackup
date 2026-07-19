@@ -20,6 +20,17 @@ class ArchiveConversationIdentityTest {
         assertNotEquals(key, ArchiveConversationIdentity.key("12345", "two@example.com"))
     }
 
+    @Test fun `V2 identity is stable for same device and isolated between devices`() {
+        fun key(device: String) = ArchiveConversationIdentity.key(
+            ArchiveConversationIdentity.Version.V2_ACCOUNT_DEVICE_ADDRESS,
+            "+1 (555) 123-4567",
+            "User@Example.com",
+            device
+        )
+        assertEquals(key("device-a"), key("device-a"))
+        assertNotEquals(key("device-a"), key("device-b"))
+    }
+
     @Test fun `format three email includes backward compatible conversation key header`() {
         val conversation = SmsConversationSnapshot(7, "12345", null, emptyList())
         val email = ConversationMimeMessageBuilder().build(

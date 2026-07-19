@@ -5,12 +5,14 @@ import androidx.lifecycle.ViewModelProvider
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkCoordinator
+import io.github.isht1008.opensmsbackup.device.DeviceProfileStore
 
 
 class SettingsViewModelFactory(
     private val gmailAccountManager: GmailAccountManager,
     private val gmailAccountCoordinator: GmailAccountCoordinator,
-    private val gmailBackupWorkCoordinator: GmailBackupWorkCoordinator
+    private val gmailBackupWorkCoordinator: GmailBackupWorkCoordinator,
+    private val deviceProfileStore: DeviceProfileStore
 ) : ViewModelProvider.Factory {
 
 
@@ -29,7 +31,8 @@ class SettingsViewModelFactory(
             return SettingsViewModel(
                 gmailAccountManager,
                 gmailAccountCoordinator,
-                gmailBackupWorkCoordinator
+                gmailBackupWorkCoordinator,
+                deviceProfileStore
             ) as T
         }
 

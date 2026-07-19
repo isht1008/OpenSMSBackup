@@ -21,6 +21,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import io.github.isht1008.opensmsbackup.device.DeviceProfileStore
+import io.github.isht1008.opensmsbackup.gmail.label.GmailLabelManager
 
 class GmailBackupManager {
 
@@ -131,33 +133,68 @@ class GmailBackupManager {
                             accountProfile
                         )
 
+                val deviceStore = DeviceProfileStore.create(context)
+                val deviceProfile = deviceStore.getOrCreate()
+                val labelManager = GmailLabelManager(
+                    gmail = gmailService,
+                    profileId = accountProfile.profileId,
+                    onRetry = onRetry,
+                    deviceProfile = deviceProfile,
+                    cachedDeviceLabelId = deviceStore.getGmailDeviceLabelId(
+                        accountProfile.profileId
+                    ),
+                    onDeviceLabelResolved = { labelId ->
+                        deviceStore.setGmailDeviceLabelId(accountProfile.profileId, labelId)
+                    }
+                )
+                val gmailLabels = labelManager.ensureLabels()
+                val deviceLabelId = requireNotNull(gmailLabels.deviceConversations)
+
                 val uploader =
                     GmailUploader(
                         gmail = gmailService,
                         profileId = accountProfile.profileId,
-                        onRetry = onRetry
+                        onRetry = onRetry,
+                        labelManager = labelManager,
+                        initialLabels = gmailLabels
                     )
+
+                val archiveReader = GmailArchivedConversationReader(
+                    gmail = gmailService,
+                    profileId = accountProfile.profileId,
+                    onRetry = onRetry
+                )
 
                 val mirrorStrategy = MirrorBackupStrategy(
                     uploader = uploader,
                     snapshotDao = snapshotDao,
                     accountId = accountId,
-                    accountEmail = trimmedEmail
+                    accountEmail = trimmedEmail,
+                    canTrashPrevious = { messageId, conversation ->
+                        archiveReader.read(messageId).getOrNull()?.let { document ->
+                            DeviceSnapshotOwnership.matchesV2(
+                                document,
+                                trimmedEmail,
+                                deviceProfile.deviceId,
+                                deviceLabelId,
+                                conversation
+                            )
+                        } == true
+                    }
                 )
                 val archiveAppendStrategy =
                     ArchiveAppendBackupStrategy(
                         locator = GmailArchiveLocator(
-                            lookup = GmailArchivedConversationReader(
-                                gmail = gmailService,
-                                profileId = accountProfile.profileId,
-                                onRetry = onRetry
-                            ),
-                            accountEmail = trimmedEmail
+                            lookup = archiveReader,
+                            accountEmail = trimmedEmail,
+                            deviceId = deviceProfile.deviceId,
+                            deviceLabelId = deviceLabelId
                         ),
                         uploader = uploader,
                         snapshotDao = snapshotDao,
                         accountId = accountId,
-                        accountEmail = trimmedEmail
+                        accountEmail = trimmedEmail,
+                        deviceProfile = deviceProfile
                     )
                 val backupMode = MultiAccountRepository.create(context)
                     .getBackupMode(accountProfile.profileId)
@@ -242,7 +279,8 @@ class GmailBackupManager {
                         mimeMessageBuilder.build(
                             conversation = conversation,
                             accountEmail = trimmedEmail,
-                            snapshotHash = snapshotHash
+                            snapshotHash = snapshotHash,
+                            deviceProfile = deviceProfile
                         )
 
                     val uploadResult = backupStrategy.execute(

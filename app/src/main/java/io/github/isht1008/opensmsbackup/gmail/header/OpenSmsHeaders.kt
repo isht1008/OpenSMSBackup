@@ -32,6 +32,13 @@ object OpenSmsHeaders {
     const val CONVERSATION_KEY =
         "X-OpenSMSBackup-Conversation-Key"
 
+    const val ARCHIVE_IDENTITY_VERSION =
+        "X-OpenSMSBackup-Archive-Identity-Version"
+
+    const val DEVICE_ID = "X-OpenSMSBackup-Device-Id"
+
+    const val DEVICE_NAME = "X-OpenSMSBackup-Device-Name"
+
     const val MESSAGE_COUNT =
         "X-OpenSMSBackup-Message-Count"
 

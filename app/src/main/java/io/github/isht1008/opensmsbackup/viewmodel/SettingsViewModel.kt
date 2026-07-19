@@ -11,11 +11,15 @@ import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkCoordinator
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import io.github.isht1008.opensmsbackup.device.DeviceProfile
+import io.github.isht1008.opensmsbackup.device.DeviceProfileStore
+import io.github.isht1008.opensmsbackup.device.DeviceDisplayName
 
 class SettingsViewModel(
     private val gmailAccountManager: GmailAccountManager,
     private val gmailAccountCoordinator: GmailAccountCoordinator,
-    private val gmailBackupWorkCoordinator: GmailBackupWorkCoordinator
+    private val gmailBackupWorkCoordinator: GmailBackupWorkCoordinator,
+    private val deviceProfileStore: DeviceProfileStore
 ) : ViewModel() {
 
     var accountProfiles by
@@ -44,6 +48,19 @@ class SettingsViewModel(
         mutableStateOf<String?>(null)
         private set
 
+    var deviceProfile by mutableStateOf<DeviceProfile?>(null)
+        private set
+    var deviceNameDraft by mutableStateOf("")
+    var primaryPhoneDraft by mutableStateOf("")
+    var secondaryPhoneDraft by mutableStateOf("")
+    var deviceSaveMessage by mutableStateOf<String?>(null)
+        private set
+
+    val deviceLabelPreview: String
+        get() = deviceProfile?.let {
+            "SMS/Devices/${DeviceDisplayName.gmailLabelSegment(deviceNameDraft, primaryPhoneDraft.ifBlank { it.primaryPhoneNumber }, it.deviceId, false)}/Conversations"
+        }.orEmpty()
+
     val isLastUsableDisconnect: Boolean
         get() {
             val pending =
@@ -63,6 +80,7 @@ class SettingsViewModel(
     init {
         observeAccounts()
         refreshSelectedProfile()
+        loadDeviceProfile()
     }
 
     fun addAccount() {
@@ -188,6 +206,28 @@ class SettingsViewModel(
 
     fun clearError() {
         errorMessage = null
+    }
+
+    fun saveDeviceProfile() {
+        viewModelScope.launch {
+            val current = deviceProfile ?: return@launch
+            deviceProfile = deviceProfileStore.update(
+                displayName = deviceNameDraft,
+                primaryPhoneNumber = primaryPhoneDraft.ifBlank { null },
+                secondaryPhoneNumber = secondaryPhoneDraft.ifBlank { null }
+            )
+            deviceNameDraft = requireNotNull(deviceProfile).displayName
+            primaryPhoneDraft = ""
+            secondaryPhoneDraft = ""
+            deviceSaveMessage = "Device profile saved. Gmail will keep the same device identity."
+        }
+    }
+
+    private fun loadDeviceProfile() {
+        viewModelScope.launch {
+            deviceProfile = deviceProfileStore.getOrCreate()
+            deviceNameDraft = requireNotNull(deviceProfile).displayName
+        }
     }
 
     private fun observeAccounts() {

@@ -10,19 +10,25 @@ class MirrorBackupStrategy(
     private val trashMessage: suspend (String) -> Result<Unit>,
     private val persistSnapshot: suspend (ConversationSnapshotEntity) -> Unit,
     private val accountId: String,
-    private val accountEmail: String
+    private val accountEmail: String,
+    private val canTrashPrevious: suspend (
+        String,
+        SmsConversationSnapshot
+    ) -> Boolean = { _, _ -> true }
 ) : BackupStrategy {
     constructor(
         uploader: GmailUploader,
         snapshotDao: io.github.isht1008.opensmsbackup.database.ConversationSnapshotDao,
         accountId: String,
-        accountEmail: String
+        accountEmail: String,
+        canTrashPrevious: suspend (String, SmsConversationSnapshot) -> Boolean = { _, _ -> true }
     ) : this(
         uploadConversation = uploader::uploadConversation,
         trashMessage = uploader::trashMessage,
         persistSnapshot = { snapshotDao.insert(it) },
         accountId = accountId,
-        accountEmail = accountEmail
+        accountEmail = accountEmail,
+        canTrashPrevious = canTrashPrevious
     )
 
     override suspend fun execute(
@@ -55,8 +61,10 @@ class MirrorBackupStrategy(
         existingSnapshot?.gmailMessageId
             ?.takeIf { it.isNotBlank() && it != gmailResult.messageId }
             ?.let { oldMessageId ->
-                trashMessage(oldMessageId)
-                    .onFailure { onPreviousSnapshotTrashFailure(it) }
+                if (canTrashPrevious(oldMessageId, conversation)) {
+                    trashMessage(oldMessageId)
+                        .onFailure { onPreviousSnapshotTrashFailure(it) }
+                }
             }
 
         return uploadResult

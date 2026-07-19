@@ -59,6 +59,34 @@ class BackupStrategyTest {
         assertEquals("hash", persisted?.snapshotHash)
     }
 
+    @Test fun `mirror does not trash snapshot rejected as another device`() = runBlocking {
+        var trashCalls = 0
+        val strategy = MirrorBackupStrategy(
+            uploadConversation = { Result.success(uploadResult) },
+            trashMessage = { trashCalls++; Result.success(Unit) },
+            persistSnapshot = {},
+            accountId = "account-id",
+            accountEmail = "account@example.com",
+            canTrashPrevious = { _, _ -> false }
+        )
+        strategy.execute(conversation(), email(), "hash", existingSnapshot(), {}).getOrThrow()
+        assertEquals(0, trashCalls)
+    }
+
+    @Test fun `same device mirror replacement still trashes previous snapshot`() = runBlocking {
+        var trashCalls = 0
+        val strategy = MirrorBackupStrategy(
+            uploadConversation = { Result.success(uploadResult) },
+            trashMessage = { trashCalls++; Result.success(Unit) },
+            persistSnapshot = {},
+            accountId = "account-id",
+            accountEmail = "account@example.com",
+            canTrashPrevious = { _, _ -> true }
+        )
+        strategy.execute(conversation(), email(), "hash", existingSnapshot(), {}).getOrThrow()
+        assertEquals(1, trashCalls)
+    }
+
     private fun mirrorStrategy() =
         MirrorBackupStrategy(
             uploadConversation = { Result.success(uploadResult) },
@@ -90,5 +118,17 @@ class BackupStrategyTest {
         body = "body",
         date = 1L,
         headers = emptyMap()
+    )
+
+    private fun existingSnapshot() = ConversationSnapshotEntity(
+        accountId = "account-id",
+        accountEmail = "account@example.com",
+        androidThreadId = 7,
+        address = "",
+        messageCount = 0,
+        snapshotHash = "old",
+        gmailMessageId = "old-message",
+        firstMessageDate = 0,
+        lastMessageDate = 0
     )
 }

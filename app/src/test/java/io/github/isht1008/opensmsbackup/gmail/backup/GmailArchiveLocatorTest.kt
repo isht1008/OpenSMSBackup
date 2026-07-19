@@ -85,8 +85,65 @@ class GmailArchiveLocatorTest {
         assertNull(locator(FakeLookup(emptyMap())).locate(expected, null).getOrThrow())
     }
 
+    @Test fun `cached snapshot from another device is rejected and search recovers current device`() = runBlocking {
+        val other = document("other", 30).copy(
+            deviceIdHeader = "device-b",
+            conversationKeyHeader = v2Key("device-b"),
+            labelIds = setOf("other-label")
+        )
+        val lookup = FakeLookup(
+            reads = mapOf(
+                "other" to Result.success(other),
+                "current" to Result.success(document("current", 20))
+            ),
+            candidates = listOf(candidate("current"))
+        )
+        assertEquals(
+            "current",
+            locator(lookup).locate(expected, "other").getOrThrow()?.messageId
+        )
+    }
+
+    @Test fun `search containing two devices selects only current device`() = runBlocking {
+        val other = document("other", 50).copy(
+            deviceIdHeader = "device-b",
+            conversationKeyHeader = v2Key("device-b"),
+            labelIds = setOf("device-label")
+        )
+        val lookup = FakeLookup(
+            reads = mapOf(
+                "other" to Result.success(other),
+                "current" to Result.success(document("current", 10))
+            ),
+            candidates = listOf(candidate("other"), candidate("current"))
+        )
+        assertEquals("current", locator(lookup).locate(expected, null).getOrThrow()?.messageId)
+    }
+
+    @Test fun `legacy V1 archive requires explicit Room cache and cannot be search claimed`() = runBlocking {
+        val legacy = document("legacy", 10).copy(
+            deviceIdHeader = null,
+            identityVersionHeader = null,
+            labelIds = emptySet(),
+            conversationKeyHeader = ArchiveConversationIdentity.key(
+                expected.address,
+                "user@example.com"
+            )
+        )
+        val cachedLookup = FakeLookup(mapOf("legacy" to Result.success(legacy)))
+        assertEquals(
+            "legacy",
+            locator(cachedLookup).locate(expected, "legacy").getOrThrow()?.messageId
+        )
+        val searchLookup = FakeLookup(
+            mapOf("legacy" to Result.success(legacy)),
+            listOf(candidate("legacy"))
+        )
+        assertNull(locator(searchLookup).locate(expected, null).getOrThrow())
+    }
+
     private fun locator(lookup: GmailArchiveLookup) =
-        GmailArchiveLocator(lookup, "user@example.com")
+        GmailArchiveLocator(lookup, "user@example.com", "device-a", "device-label")
 
     private fun document(
         id: String,
@@ -97,11 +154,26 @@ class GmailArchiveLocatorTest {
         threadId = "thread-$id",
         internalDate = internalDate,
         accountEmail = "user@example.com",
-        conversationKeyHeader = null,
-        conversation = conversation(address)
+        conversationKeyHeader = ArchiveConversationIdentity.key(
+            ArchiveConversationIdentity.Version.V2_ACCOUNT_DEVICE_ADDRESS,
+            address,
+            "user@example.com",
+            "device-a"
+        ),
+        conversation = conversation(address),
+        deviceIdHeader = "device-a",
+        identityVersionHeader = "2",
+        labelIds = setOf("device-label")
     )
 
     private fun candidate(id: String) = GmailArchiveCandidate(id, "thread-$id")
+
+    private fun v2Key(deviceId: String) = ArchiveConversationIdentity.key(
+        ArchiveConversationIdentity.Version.V2_ACCOUNT_DEVICE_ADDRESS,
+        expected.address,
+        "user@example.com",
+        deviceId
+    )
 
     private fun conversation(address: String) =
         SmsConversationSnapshot(7, address, null, emptyList())
@@ -113,7 +185,10 @@ class GmailArchiveLocatorTest {
         var searches = 0
         override suspend fun read(messageId: String) =
             reads[messageId] ?: Result.failure(ArchiveMessageNotFoundException())
-        override suspend fun search(conversationKey: String): Result<List<GmailArchiveCandidate>> {
+        override suspend fun search(
+            conversationKey: String,
+            deviceLabelId: String
+        ): Result<List<GmailArchiveCandidate>> {
             searches++
             return Result.success(candidates)
         }
