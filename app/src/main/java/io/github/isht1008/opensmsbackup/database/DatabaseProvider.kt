@@ -191,6 +191,35 @@ object DatabaseProvider {
             }
         }
 
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `backup_verifications` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `profile_id` TEXT NOT NULL, `account_email` TEXT NOT NULL,
+                    `device_id` TEXT NOT NULL, `device_name` TEXT NOT NULL,
+                    `mode` TEXT NOT NULL, `started_at` INTEGER NOT NULL,
+                    `completed_at` INTEGER NOT NULL, `status` TEXT NOT NULL,
+                    `local_message_count` INTEGER NOT NULL,
+                    `local_conversation_count` INTEGER NOT NULL,
+                    `archived_message_count` INTEGER NOT NULL,
+                    `archived_conversation_count` INTEGER NOT NULL,
+                    `matched_message_count` INTEGER NOT NULL,
+                    `missing_message_count` INTEGER NOT NULL,
+                    `unexpected_archived_message_count` INTEGER NOT NULL,
+                    `duplicate_fingerprint_count` INTEGER NOT NULL,
+                    `unreadable_archive_count` INTEGER NOT NULL,
+                    `verification_percent` REAL NOT NULL,
+                    `short_summary` TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_backup_verifications_profile_id` ON `backup_verifications` (`profile_id`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_backup_verifications_completed_at` ON `backup_verifications` (`completed_at`)")
+        }
+    }
+
     @Volatile
     private var instance: BackupDatabase? = null
 
@@ -210,7 +239,8 @@ object DatabaseProvider {
                         .addMigrations(
                             MIGRATION_1_2,
                             MIGRATION_2_3,
-                            MIGRATION_3_4
+                            MIGRATION_3_4,
+                            MIGRATION_4_5
                         )
                         .build()
                         .also { database ->

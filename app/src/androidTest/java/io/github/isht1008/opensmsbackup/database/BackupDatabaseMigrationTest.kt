@@ -54,6 +54,22 @@ class BackupDatabaseMigrationTest {
         }
     }
 
+    @Test fun migration4To5PreservesProfilesAndAddsEmptyVerificationHistory() {
+        val name = "migration-4-5"
+        helper.createDatabase(name, 4).apply {
+            execSQL("INSERT INTO account_profiles (profile_id, provider_account_id, account_email, display_name, photo_url, connection_state, created_time, updated_time) VALUES ('profile-a', NULL, 'user@example.com', NULL, NULL, 'CONNECTED', 1, 1)")
+            close()
+        }
+        helper.runMigrationsAndValidate(name, 5, true, DatabaseProvider.MIGRATION_4_5).use { database ->
+            database.query("SELECT count(*) FROM account_profiles WHERE profile_id = 'profile-a'").use {
+                it.moveToFirst(); assertEquals(1, it.getInt(0))
+            }
+            database.query("SELECT count(*) FROM backup_verifications").use {
+                it.moveToFirst(); assertEquals(0, it.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DATABASE_NAME = "migration-3-4"
     }

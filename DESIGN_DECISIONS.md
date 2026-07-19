@@ -32,6 +32,10 @@ Sprint 2B retries remain operation-local. The worker returns typed logical abort
 
 Every installation owns a random UUID Device Profile stored independently of Gmail accounts. Gmail labels are readable aliases; device headers and V2 conversation identity are authoritative. Legacy V1 archives may be continued only through a matching pre-upgrade Room cache. A foreign or unowned legacy snapshot is never automatically claimed, merged, replaced, or moved to Trash.
 
+### Read-only backup verification
+
+Gmail is the verification source of truth. Verification consumes V1/V2 message aliases within account/device-scoped V2/V3 archives; counts alone never establish health. Extra archived messages are reported without automatically calling them corruption, and unreadable or incomplete scope prevents `VERIFIED`. Verification performs no Gmail mutation and stores no SMS content in Room history.
+
 ## Current compromises
 
 - Android `threadId` is used as conversation identity.

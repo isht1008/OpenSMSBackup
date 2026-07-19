@@ -13,11 +13,12 @@ OpenSMSBackup is an Android 12+ privacy-first SMS backup app. The current code r
 - Local format-v2 JSON export to `Documents/OpenSMSBackup` through MediaStore, plus a simple backup-history list.
 - Multiple Room-backed Google account profiles with selected profile ID in DataStore and profile-aware Gmail `gmail.modify` access.
 - Gmail format-v3 snapshot generation: one email per Android `threadId`, chronological sent/received content, HTML and plain text, custom headers, and restore JSON attachment.
-- Room database v3 with account profiles/settings plus legacy backup and conversation-snapshot tables; explicit migrations exist.
+- Room database v5 with account profiles/settings, legacy backup and conversation-snapshot tables, and count-only verification history; explicit migrations exist.
 - Incremental Gmail comparison using a SHA-256 snapshot hash. Replacement is uploaded and persisted before the previous message is moved to Trash.
 - Manual Gmail backup executes as unique profile-bound WorkManager foreground work; WorkInfo restores progress across Activity/process recreation and both app/notification cancellation target the exact request.
 - Installation-scoped Device Profiles isolate mirror and append-only Gmail namespaces using device labels, V2 conversation identity, and device ownership headers without hardware identifiers or phone permissions.
 - Country-aware SMS identity uses the installation's editable ISO region, official libphonenumber E.164 canonicalization, dual V1/V2 fingerprint matching, and device-isolated archive identity V3 while retaining controlled V1/V2 discovery compatibility.
+- Read-only Gmail verification paginates the current device namespace and compares V1/V2 fingerprint aliases, with count-only health history in Room.
 
 **Partially implemented**
 

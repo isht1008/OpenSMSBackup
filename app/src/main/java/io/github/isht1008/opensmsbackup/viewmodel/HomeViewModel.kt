@@ -29,6 +29,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import io.github.isht1008.opensmsbackup.database.BackupVerificationEntity
+import io.github.isht1008.opensmsbackup.database.DatabaseProvider
+import io.github.isht1008.opensmsbackup.device.DeviceProfileStore
+import io.github.isht1008.opensmsbackup.verification.BackupVerificationWorkCoordinator
+import io.github.isht1008.opensmsbackup.verification.BackupVerificationWorkContract
+import java.util.UUID
 
 class HomeViewModel(
     application: Application
@@ -36,6 +42,7 @@ class HomeViewModel(
 
     private val gmailWorkCoordinator =
         GmailBackupWorkCoordinator(application)
+    private val verificationCoordinator = BackupVerificationWorkCoordinator(application)
 
     var status by mutableStateOf("Ready")
         private set
@@ -67,11 +74,45 @@ class HomeViewModel(
 
     var gmailBackupProgress by mutableStateOf(0f)
         private set
+    var latestVerification by mutableStateOf<BackupVerificationEntity?>(null)
+        private set
+    var verificationProgress by mutableStateOf<io.github.isht1008.opensmsbackup.verification.BackupVerificationProgress?>(null)
+        private set
+    var verificationWorkId by mutableStateOf<UUID?>(null)
+        private set
+    var isVerifying by mutableStateOf(false)
+        private set
 
     var onGmailConsentRequired: ((Intent) -> Unit)? = null
 
     init {
         observeGmailBackupWork()
+        observeVerification()
+    }
+
+    fun startVerification() = viewModelScope.launch {
+        val profile = GmailAccountManager(getApplication()).getSelectedAccountProfile()
+        if (profile == null) { status = "Select a connected Gmail account first."; return@launch }
+        if (profile.connectionState != AccountProfileEntity.CONNECTION_STATE_CONNECTED) {
+            status = "Reconnect the selected Gmail account before verification."
+            return@launch
+        }
+        val device = DeviceProfileStore.create(getApplication()).getOrCreate()
+        verificationWorkId = verificationCoordinator.enqueue(profile.profileId, device.deviceId)
+        status = "Backup verification queued."
+    }
+
+    fun cancelVerification() { verificationWorkId?.let(verificationCoordinator::cancel) }
+
+    private fun observeVerification() = viewModelScope.launch {
+        verificationCoordinator.observe().collectLatest { infos ->
+            val selected = infos.firstOrNull { !it.state.isFinished }
+                ?: infos.maxByOrNull { BackupVerificationWorkContract.createdAt(it.tags) }
+            verificationWorkId = selected?.id
+            isVerifying = selected?.state?.let { !it.isFinished } == true
+            verificationProgress = selected?.let { BackupVerificationWorkContract.readProgress(it.progress) }
+            if (selected?.state?.isFinished == true) loadLatestVerification()
+        }
     }
 
     fun updateStatus(
@@ -89,6 +130,18 @@ class HomeViewModel(
                     .getSelectedAccountProfile()
 
             updateAccountStatus(profile)
+            loadLatestVerification(profile)
+        }
+    }
+
+    private suspend fun loadLatestVerification(
+        profile: AccountProfileEntity? = null
+    ) {
+        val resolvedProfile = profile ?: GmailAccountManager(getApplication()).getSelectedAccountProfile()
+        val device = DeviceProfileStore.create(getApplication()).getOrCreate()
+        latestVerification = resolvedProfile?.let {
+            DatabaseProvider.getDatabase(getApplication()).backupVerificationDao()
+                .findLatest(it.profileId, device.deviceId)
         }
     }
 

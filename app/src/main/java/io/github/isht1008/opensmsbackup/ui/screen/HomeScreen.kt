@@ -36,10 +36,13 @@ import androidx.core.content.ContextCompat
 import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.StatusCard
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
+import java.text.DateFormat
+import java.util.Date
 
 private enum class PendingBackupAction {
     LOCAL,
-    GMAIL
+    GMAIL,
+    VERIFY
 }
 
 @Composable
@@ -59,7 +62,7 @@ fun HomeScreen(
 
     val backupInProgress =
         viewModel.isBackingUp ||
-                viewModel.isGmailBackingUp
+                viewModel.isGmailBackingUp || viewModel.isVerifying
 
     var pendingBackupAction by remember {
         mutableStateOf<PendingBackupAction?>(null)
@@ -98,6 +101,8 @@ fun HomeScreen(
                     maxConversations = 3
                 )
             }
+
+            PendingBackupAction.VERIFY -> viewModel.startVerification()
 
             null -> Unit
         }
@@ -159,7 +164,7 @@ fun HomeScreen(
         pendingBackupAction = action
 
         val notificationPermissionNeeded =
-            action == PendingBackupAction.GMAIL &&
+            action != PendingBackupAction.LOCAL &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(
                     context,
@@ -175,10 +180,8 @@ fun HomeScreen(
             "Requesting SMS permission..."
         )
 
-        val permissions = mutableListOf(
-            Manifest.permission.READ_SMS,
-            Manifest.permission.READ_CONTACTS
-        )
+        val permissions = mutableListOf(Manifest.permission.READ_SMS)
+        if (action != PendingBackupAction.VERIFY) permissions += Manifest.permission.READ_CONTACTS
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions += Manifest.permission.POST_NOTIFICATIONS
             viewModel.updateStatus(
@@ -316,6 +319,33 @@ fun HomeScreen(
                 text = "Settings",
                 onClick = onSettingsClick
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            PrimaryButton(
+                text = if (viewModel.isVerifying) "Verifying backup…" else "Verify backup",
+                onClick = { requestPermissionsAndRun(PendingBackupAction.VERIFY) },
+                enabled = !backupInProgress
+            )
+
+            if (viewModel.isVerifying) {
+                Spacer(modifier = Modifier.height(8.dp))
+                viewModel.verificationProgress?.let {
+                    Text("${it.stage.name.replace('_', ' ')} · ${it.processed}${it.total?.let { total -> " / $total" }.orEmpty()}")
+                }
+                PrimaryButton("Cancel verification", viewModel::cancelVerification)
+            }
+
+            viewModel.latestVerification?.let { result ->
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Latest verification", fontWeight = FontWeight.Bold)
+                Text("${result.status.replace('_', ' ')} · ${result.verificationPercent.toInt()}% represented")
+                Text("Account: ${result.accountEmail}\nDevice: ${result.deviceName}\nMode: ${result.mode}")
+                Text("Local ${result.localMessageCount} · Archived ${result.archivedMessageCount} · Matched ${result.matchedMessageCount}")
+                Text("Missing ${result.missingMessageCount} · Extra ${result.unexpectedArchivedMessageCount} · Duplicates ${result.duplicateFingerprintCount} · Unreadable ${result.unreadableArchiveCount}")
+                Text(result.shortSummary)
+                Text("Completed: ${DateFormat.getDateTimeInstance().format(Date(result.completedAt))}")
+            }
 
             if (backupInProgress) {
                 Spacer(

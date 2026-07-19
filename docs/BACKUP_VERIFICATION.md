@@ -1,0 +1,23 @@
+# Backup verification
+
+## Status
+
+**Implemented:** Sprint 4C verifies that current local SMS messages are represented in the selected Gmail account and current device namespace. Gmail is the source of truth; Room stores history but is never accepted as proof of remote content.
+
+Verification compares V1 legacy and V2 country-aware fingerprint aliases rather than trusting counts, Android row IDs, contact names, raw address formatting, or timestamps alone. Each remote record can be consumed once. Sender IDs remain conservative exact identities: `AX-HDFCBK`, `VM-HDFCBK`, and `HDFCBK` are separate.
+
+Mirror and Archive Append-Only verification paginate the current device Conversations label and validate account, device header, label ownership, identity version, and conversation key. For each conversation identity, the newest valid cumulative snapshot is authoritative under the current protocol. V2 and V3 device identities are supported. Verification never repairs, relabels, deletes, or uploads Gmail data.
+
+The engine builds an alias-to-record index and a V2 canonical fingerprint multiset. An archived duplicate is each record beyond the first with the same V2 canonical identity; multiple aliases for one record are not duplicates. Unconsumed remote records are unexpected, which can represent deleted local SMS and is not automatically corruption.
+
+Comparison is approximately O(local + archived messages). Gmail uses page tokens. A configurable 100,000-message safety bound prevents unbounded work; reaching it can never return `VERIFIED`.
+
+- `VERIFIED`: all local messages match with no extras, duplicates, unreadable archives, critical identity errors, or incomplete scan.
+- `PARTIALLY_VERIFIED`: all local messages match, but differences or incomplete checks exist.
+- `FAILED`: current local messages are missing.
+- `NOT_AVAILABLE`: no valid verifiable archive scope is available.
+- `CANCELLED`: cooperative cancellation stopped verification.
+
+Results contain counts and a short summary, never SMS bodies. WorkManager data contains only scalar identifiers, stages, and counts. Verification is unique per profile/device, cancellable, and persisted in Room schema v5.
+
+Verification confirms that current local SMS messages are represented in the selected Gmail archive scope at verification time. It does not guarantee future Gmail availability, future decryptability, or successful migration by another tool. Restore remains outside backup-only v1.
