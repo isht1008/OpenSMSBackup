@@ -6,8 +6,10 @@ import io.github.isht1008.opensmsbackup.gmail.backup.GmailArchiveDocument
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailArchivedConversationReader
 import io.github.isht1008.opensmsbackup.gmail.error.GmailRetryPolicy
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 
 data class VerificationMessagePage(val messageIds: List<String>, val nextPageToken: String?)
 
@@ -25,8 +27,10 @@ class AndroidVerificationGmailGateway(
     override suspend fun listPage(labelId: String, pageToken: String?): Result<VerificationMessagePage> =
         try {
             val response = retryPolicy.execute("verification_list_archives", profileId) {
-                gmail.users().messages().list("me").setLabelIds(listOf(labelId))
-                    .setPageToken(pageToken).setMaxResults(PAGE_SIZE).execute()
+                withContext(Dispatchers.IO) {
+                    gmail.users().messages().list("me").setLabelIds(listOf(labelId))
+                        .setPageToken(pageToken).setMaxResults(PAGE_SIZE).execute()
+                }
             }
             Result.success(VerificationMessagePage(response.messages.orEmpty().mapNotNull { it.id }, response.nextPageToken))
         } catch (cancelled: CancellationException) {
@@ -41,27 +45,41 @@ class AndroidVerificationGmailGateway(
 class GmailVerificationRepository(
     private val gateway: VerificationGmailGateway,
     private val deviceLabelId: String,
-    private val maximumMessages: Int = 100_000
+    private val maximumMessages: Int = 100_000,
+    private val maximumPages: Int = 10_000
 ) : VerificationArchiveRepository {
     override suspend fun loadArchive(request: BackupVerificationRequest): Result<VerificationArchiveSnapshot> = try {
-        val documents = ArrayList<GmailArchiveDocument>()
-        val issues = ArrayList<BackupVerificationIssue>()
+        val newestByConversation = HashMap<String, GmailArchiveDocument>()
+        val issueCounts = LinkedHashMap<BackupVerificationIssueType, Int>()
+        val seenPageTokens = HashSet<String>()
         var unreadable = 0
         var pageToken: String? = null
+        var pages = 0
         var loaded = 0
         var complete = true
         do {
             currentCoroutineContext().ensureActive()
+            if (pages++ >= maximumPages || pageToken?.let { !seenPageTokens.add(it) } == true) {
+                complete = false
+                issueCounts.increment(BackupVerificationIssueType.SAFETY_LIMIT_REACHED)
+                break
+            }
             val page = gateway.listPage(deviceLabelId, pageToken).getOrThrow()
             for (id in page.messageIds) {
                 if (loaded >= maximumMessages) {
                     complete = false
-                    issues += BackupVerificationIssue(BackupVerificationIssueType.SAFETY_LIMIT_REACHED)
+                    issueCounts.increment(BackupVerificationIssueType.SAFETY_LIMIT_REACHED)
                     break
                 }
                 loaded++
                 gateway.read(id).onSuccess { document ->
-                    validate(document, request)?.let(issues::add) ?: documents.add(document)
+                    validate(document, request)?.let { issueCounts.increment(it.type) } ?: run {
+                        val key = requireNotNull(document.conversationKeyHeader)
+                        val current = newestByConversation[key]
+                        if (current == null || document.internalDate > current.internalDate) {
+                            newestByConversation[key] = document
+                        }
+                    }
                 }.onFailure {
                     unreadable++
                 }
@@ -70,8 +88,8 @@ class GmailVerificationRepository(
             pageToken = page.nextPageToken
         } while (pageToken != null)
 
-        val newest = documents.groupBy { requireNotNull(it.conversationKeyHeader) }
-            .values.mapNotNull { candidates -> candidates.maxByOrNull { it.internalDate } }
+        val newest = newestByConversation.values
+        val issues = issueCounts.map { (type, count) -> BackupVerificationIssue(type, count) }
         Result.success(VerificationArchiveSnapshot(
             messages = newest.flatMap { it.conversation.messages },
             conversationCount = newest.size,
@@ -108,5 +126,11 @@ class GmailVerificationRepository(
             return BackupVerificationIssue(BackupVerificationIssueType.INVALID_CONVERSATION_IDENTITY)
         }
         return null
+    }
+
+    private fun MutableMap<BackupVerificationIssueType, Int>.increment(
+        type: BackupVerificationIssueType
+    ) {
+        this[type] = (this[type] ?: 0) + 1
     }
 }

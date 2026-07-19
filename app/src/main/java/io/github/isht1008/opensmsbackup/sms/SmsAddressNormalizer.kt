@@ -18,7 +18,7 @@ class SmsAddressNormalizer(
     fun normalize(address: String?, defaultRegion: String): NormalizedSmsAddress {
         val original = address?.trim().orEmpty()
         if (original.isBlank()) return NormalizedSmsAddress.Unknown("<unknown-address>", address)
-        val collapsed = original.replace(Regex("\\s+"), " ")
+        val collapsed = original.replace(WHITESPACE, " ")
         if (collapsed.any(Char::isLetter)) {
             return NormalizedSmsAddress.SenderId(collapsed.uppercase(Locale.ROOT), original)
         }
@@ -42,5 +42,9 @@ class SmsAddressNormalizer(
     }
 
     fun isSupportedRegion(region: String): Boolean =
-        PhoneNumberUtil.getInstance().supportedRegions.contains(region.uppercase(Locale.ROOT))
+        phoneUtil.supportedRegions.contains(region.uppercase(Locale.ROOT))
+
+    private companion object {
+        val WHITESPACE = Regex("\\s+")
+    }
 }

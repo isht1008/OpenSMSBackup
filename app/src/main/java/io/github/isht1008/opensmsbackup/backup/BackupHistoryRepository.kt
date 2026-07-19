@@ -2,8 +2,9 @@ package io.github.isht1008.opensmsbackup.backup
 
 import android.content.Context
 import android.provider.MediaStore
+import android.util.JsonReader
 import io.github.isht1008.opensmsbackup.model.BackupHistoryItem
-import org.json.JSONObject
+import java.io.InputStreamReader
 
 class BackupHistoryRepository {
 
@@ -77,27 +78,28 @@ class BackupHistoryRepository {
 
                     context.contentResolver
                         .openInputStream(uri)
-                        ?.bufferedReader()
-                        ?.use { reader ->
-
-                            val json =
-                                JSONObject(reader.readText())
-
-                            createdAt =
-                                json.optString("createdAt")
-
-                            val statistics =
-                                json.optJSONObject("statistics")
-
-                            messages =
-                                statistics?.optInt(
-                                    "totalMessages"
-                                ) ?: 0
-
-                            conversations =
-                                statistics?.optInt(
-                                    "totalConversations"
-                                ) ?: 0
+                        ?.use { input ->
+                            JsonReader(InputStreamReader(input, Charsets.UTF_8)).use { reader ->
+                                reader.beginObject()
+                                while (reader.hasNext()) {
+                                    when (reader.nextName()) {
+                                        "createdAt" -> createdAt = reader.nextString()
+                                        "statistics" -> {
+                                            reader.beginObject()
+                                            while (reader.hasNext()) {
+                                                when (reader.nextName()) {
+                                                    "totalMessages" -> messages = reader.nextInt()
+                                                    "totalConversations" -> conversations = reader.nextInt()
+                                                    else -> reader.skipValue()
+                                                }
+                                            }
+                                            reader.endObject()
+                                        }
+                                        else -> reader.skipValue()
+                                    }
+                                }
+                                reader.endObject()
+                            }
                         }
                 }
 

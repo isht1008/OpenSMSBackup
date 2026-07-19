@@ -79,6 +79,29 @@ class BackupVerificationEngineTest {
         assertEquals(BackupVerificationStatus.CANCELLED, cancelledEngine.verify(request(listOf(message(1)))).status)
     }
 
+    @Test fun `forty thousand message comparison remains linear and bounded`() = runBlocking {
+        val count = 40_000
+        val local = List(count) { index ->
+            message(index.toLong() + 1, date = index.toLong() + 1, body = "synthetic-$index")
+        }
+        val remote = local.map { it.copy(id = it.id + count) }
+        val runtime = Runtime.getRuntime()
+        val heapBefore = runtime.totalMemory() - runtime.freeMemory()
+        val started = System.nanoTime()
+
+        val result = verify(local, remote)
+
+        val elapsedMillis = (System.nanoTime() - started) / 1_000_000
+        val heapAfter = runtime.totalMemory() - runtime.freeMemory()
+        println(
+            "verification_benchmark messages=$count elapsed_ms=$elapsedMillis " +
+                "heap_delta_bytes=${heapAfter - heapBefore}"
+        )
+        assertEquals(BackupVerificationStatus.VERIFIED, result.status)
+        assertEquals(count, result.matchedMessageCount)
+        assertTrue("40k verification took ${elapsedMillis}ms", elapsedMillis < 30_000)
+    }
+
     private suspend fun verify(local: List<SmsMessage>, remote: List<SmsMessage>, conversations: Int = if (remote.isEmpty()) 0 else 1,
         unreadable: Int = 0, complete: Boolean = true) = DefaultBackupVerificationEngine(VerificationArchiveRepository {
         Result.success(VerificationArchiveSnapshot(remote, conversations, unreadable, complete = complete))

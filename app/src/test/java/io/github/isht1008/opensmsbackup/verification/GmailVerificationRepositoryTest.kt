@@ -44,6 +44,37 @@ class GmailVerificationRepositoryTest {
         assertTrue(result.issues.any { it.type == BackupVerificationIssueType.SAFETY_LIMIT_REACHED })
     }
 
+    @Test fun `newest snapshot replaces older snapshot without accumulating history`() = runBlocking {
+        val older = document("old", "123").copy(internalDate = 1)
+        val newer = document("new", "123").copy(internalDate = 2)
+        val gateway = FakeGateway(
+            mapOf(null to VerificationMessagePage(listOf("old", "new"), null)),
+            mapOf("old" to older, "new" to newer)
+        )
+
+        val result = GmailVerificationRepository(gateway, "label").loadArchive(request()).getOrThrow()
+
+        assertEquals(1, result.conversationCount)
+        assertEquals(listOf(newer.conversation.messages.single()), result.messages)
+    }
+
+    @Test fun `repeated page token terminates as incomplete`() = runBlocking {
+        val doc = document("a", "123")
+        val gateway = FakeGateway(
+            mapOf(
+                null to VerificationMessagePage(listOf("a"), "loop"),
+                "loop" to VerificationMessagePage(emptyList(), "loop")
+            ),
+            mapOf("a" to doc)
+        )
+
+        val result = GmailVerificationRepository(gateway, "label").loadArchive(request()).getOrThrow()
+
+        assertFalse(result.complete)
+        assertTrue(result.issues.any { it.type == BackupVerificationIssueType.SAFETY_LIMIT_REACHED })
+        assertEquals(listOf(null, "loop"), gateway.pageTokens)
+    }
+
     private fun request() = BackupVerificationRequest("p", "user@example.com", "device", "Phone",
         GmailBackupMode.MIRROR, "IN", emptyList())
     private fun document(id: String, address: String): GmailArchiveDocument {

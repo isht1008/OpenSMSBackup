@@ -13,6 +13,8 @@ enum class SmsFingerprintVersion {
 }
 
 object SmsFingerprint {
+    private val addressNormalizer = SmsAddressNormalizer()
+
     fun generate(message: SmsMessage): String = generateV1(message)
 
     fun generate(
@@ -24,7 +26,7 @@ object SmsFingerprint {
         SmsFingerprintVersion.V2_COUNTRY_AWARE -> digest(
             listOf(
                 "fingerprint-v2",
-                SmsAddressNormalizer().normalize(message.address, defaultRegion).canonical,
+                addressNormalizer.normalize(message.address, defaultRegion).canonical,
                 direction(message.smsType),
                 message.date.toString(),
                 message.body.orEmpty()
@@ -61,9 +63,18 @@ object SmsFingerprint {
             digest.update(':'.code.toByte())
             digest.update(bytes)
         }
-        return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        val bytes = digest.digest()
+        return buildString(bytes.size * 2) {
+            bytes.forEach { byte ->
+                val value = byte.toInt() and 0xff
+                append(HEX[value ushr 4])
+                append(HEX[value and 0x0f])
+            }
+        }
     }
 
     private fun direction(type: SmsType): String =
         if (type == SmsType.SENT) "sent" else "received"
+
+    private const val HEX = "0123456789abcdef"
 }

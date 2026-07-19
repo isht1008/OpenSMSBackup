@@ -4,17 +4,20 @@ import android.content.ContentValues
 import android.content.Context
 import android.os.Environment
 import android.provider.MediaStore
-import org.json.JSONObject
+import android.util.JsonWriter
+import io.github.isht1008.opensmsbackup.model.BackupFileInfo
+import java.io.FilterOutputStream
+import java.io.OutputStream
+import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import io.github.isht1008.opensmsbackup.model.BackupFileInfo
 
 class BackupFileWriter(
     private val context: Context
 ) {
 
-    fun write(json: JSONObject): BackupFileInfo {
+    fun write(writeJson: (JsonWriter) -> Unit): BackupFileInfo {
 
         val timestamp = SimpleDateFormat(
             "yyyy-MM-dd_HH-mm-ss",
@@ -23,8 +26,6 @@ class BackupFileWriter(
 
         val filename =
             "OpenSMSBackup_$timestamp.json"
-
-        val jsonText = json.toString(2)
 
         val contentValues = ContentValues().apply {
             put(
@@ -42,6 +43,7 @@ class BackupFileWriter(
                 Environment.DIRECTORY_DOCUMENTS +
                         "/OpenSMSBackup"
             )
+            put(MediaStore.Files.FileColumns.IS_PENDING, 1)
         }
 
         val uri = context.contentResolver.insert(
@@ -52,22 +54,51 @@ class BackupFileWriter(
                 "Unable to create backup file"
             )
 
-        context.contentResolver.openOutputStream(uri)
-            ?.use { outputStream ->
-
-                outputStream.write(
-                    jsonText.toByteArray(Charsets.UTF_8)
-                )
-
+        val counter = CountingOutputStream(
+            context.contentResolver.openOutputStream(uri)
+                ?: run {
+                    context.contentResolver.delete(uri, null, null)
+                    throw IllegalStateException("Unable to open backup stream")
+                }
+        )
+        try {
+            counter.use { outputStream ->
+                JsonWriter(OutputStreamWriter(outputStream, Charsets.UTF_8)).use { writer ->
+                    writer.setIndent("  ")
+                    writeJson(writer)
+                }
             }
-            ?: throw IllegalStateException(
-                "Unable to open backup stream"
+            val updated = context.contentResolver.update(
+                uri,
+                ContentValues().apply { put(MediaStore.Files.FileColumns.IS_PENDING, 0) },
+                null,
+                null
             )
+            check(updated == 1) { "Unable to finalize backup file" }
+        } catch (error: Exception) {
+            context.contentResolver.delete(uri, null, null)
+            throw error
+        }
 
         return BackupFileInfo(
             uri = uri.toString(),
             filename = filename,
-            fileSizeBytes = jsonText.toByteArray(Charsets.UTF_8).size.toLong()
+            fileSizeBytes = counter.byteCount
         )
+    }
+
+    private class CountingOutputStream(output: OutputStream) : FilterOutputStream(output) {
+        var byteCount: Long = 0
+            private set
+
+        override fun write(value: Int) {
+            out.write(value)
+            byteCount++
+        }
+
+        override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            out.write(buffer, offset, length)
+            byteCount += length
+        }
     }
 }

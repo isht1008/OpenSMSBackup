@@ -3,6 +3,8 @@ package io.github.isht1008.opensmsbackup.verification
 import io.github.isht1008.opensmsbackup.gmail.backup.SmsFingerprint
 import io.github.isht1008.opensmsbackup.gmail.backup.SmsFingerprintVersion
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 fun interface VerificationArchiveRepository {
     suspend fun loadArchive(request: BackupVerificationRequest): Result<VerificationArchiveSnapshot>
@@ -42,10 +44,16 @@ class DefaultBackupVerificationEngine(
             val aliasToRecords = HashMap<String, MutableList<Int>>()
             val canonicalCounts = HashMap<String, Int>()
             archive.messages.forEachIndexed { index, message ->
-                SmsFingerprint.aliases(message, request.defaultRegion).forEach {
+                if (index % CANCELLATION_INTERVAL == 0) currentCoroutineContext().ensureActive()
+                val legacy = SmsFingerprint.generate(message)
+                val canonical = SmsFingerprint.generate(
+                    message,
+                    SmsFingerprintVersion.V2_COUNTRY_AWARE,
+                    request.defaultRegion
+                )
+                sequenceOf(legacy, canonical).distinct().forEach {
                     aliasToRecords.getOrPut(it) { ArrayList(1) }.add(index)
                 }
-                val canonical = SmsFingerprint.generate(message, SmsFingerprintVersion.V2_COUNTRY_AWARE, request.defaultRegion)
                 canonicalCounts[canonical] = (canonicalCounts[canonical] ?: 0) + 1
             }
             val duplicates = canonicalCounts.values.sumOf { (it - 1).coerceAtLeast(0) }
@@ -53,6 +61,7 @@ class DefaultBackupVerificationEngine(
             var matched = 0
             onProgress(BackupVerificationProgress(VerificationStage.COMPARING, 0, request.localMessages.size))
             request.localMessages.forEachIndexed { index, local ->
+                if (index % CANCELLATION_INTERVAL == 0) currentCoroutineContext().ensureActive()
                 val record = SmsFingerprint.aliases(local, request.defaultRegion).asSequence()
                     .flatMap { aliasToRecords[it].orEmpty().asSequence() }
                     .firstOrNull { !consumed[it] }
@@ -84,5 +93,9 @@ class DefaultBackupVerificationEngine(
         } catch (_: CancellationException) {
             return empty(BackupVerificationStatus.CANCELLED, emptyList())
         }
+    }
+
+    private companion object {
+        const val CANCELLATION_INTERVAL = 250
     }
 }

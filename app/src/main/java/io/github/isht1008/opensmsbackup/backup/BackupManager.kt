@@ -35,16 +35,10 @@ class BackupManager {
             backupUri = ""
         )
 
-        // Generate JSON backup
-        val json = jsonBackupWriter.createJson(result)
-
-        // Save backup file
         val writer = BackupFileWriter(context)
-
-        val file = writer.write(json)
-
-        println("Backup saved: ${file.uri}")
-        println("Filename: ${file.filename}")
+        val file = writer.write { jsonWriter ->
+            jsonBackupWriter.writeJson(jsonWriter, result)
+        }
 
         return result.copy(
             backupFileName = file.filename,

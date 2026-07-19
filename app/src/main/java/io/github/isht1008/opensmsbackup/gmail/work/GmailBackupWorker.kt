@@ -122,7 +122,10 @@ class GmailBackupWorker(
             Log.i("OpenSMSBackup", "gmail_worker_cancelled work=$id")
             throw cancellation
         } catch (error: Exception) {
-            Log.e("OpenSMSBackup", "gmail_worker_infrastructure_failure work=$id", error)
+            Log.e(
+                "OpenSMSBackup",
+                "gmail_worker_infrastructure_failure work=$id type=${error::class.java.simpleName}"
+            )
             return Result.failure(
                 GmailBackupWorkContract.outputData(
                     failedBeforeStart(

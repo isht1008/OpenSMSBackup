@@ -58,10 +58,12 @@ android {
     buildTypes {
 
         release {
-
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
 
         }
 
@@ -146,8 +148,6 @@ dependencies {
     implementation(libs.google.http.client.android)
 
     implementation(libs.google.api.services.gmail)
-
-    implementation(libs.google.api.client.android.extensions)
 
     implementation(libs.androidx.datastore.preferences)
 

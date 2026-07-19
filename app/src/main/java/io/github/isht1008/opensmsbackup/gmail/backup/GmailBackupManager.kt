@@ -308,9 +308,8 @@ class GmailBackupManager {
                             if (warnings.size < 20) {
                                 warnings.add(
                                     "Thread ${conversation.threadId}: new snapshot uploaded, " +
-                                        "but the previous snapshot could not be moved to Trash" +
-                                        error.message?.takeIf { it.isNotBlank() }
-                                            ?.let { " - $it" }.orEmpty()
+                                        "but the previous snapshot could not be moved to Trash " +
+                                        "(${failure.category}, status=${failure.httpStatusCode ?: "unavailable"})"
                                 )
                             }
                         }
@@ -358,14 +357,10 @@ class GmailBackupManager {
                                         )
 
                                         append(": ")
-                                        append(
-                                            error.javaClass.simpleName
-                                        )
-                                        append(" - ")
-                                        append(
-                                            error.message
-                                                ?: "Unknown error"
-                                        )
+                                        append(failure.category)
+                                        append(" (status=")
+                                        append(failure.httpStatusCode ?: "unavailable")
+                                        append(')')
                                     }
                                 )
                             }
