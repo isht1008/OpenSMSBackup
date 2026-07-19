@@ -19,7 +19,7 @@ class BackupStrategyTest {
 
     @Test fun `mirror mode selects mirror strategy`() {
         val mirror = mirrorStrategy()
-        val archive = ArchiveAppendBackupStrategy(mirror)
+        val archive = archiveStrategy()
 
         assertSame(
             mirror,
@@ -29,37 +29,13 @@ class BackupStrategyTest {
 
     @Test fun `archive append mode selects archive strategy`() {
         val mirror = mirrorStrategy()
-        val archive = ArchiveAppendBackupStrategy(mirror)
+        val archive = archiveStrategy()
 
         assertSame(
             archive,
             BackupStrategySelector(mirror, archive)
                 .select(GmailBackupMode.ARCHIVE_APPEND_ONLY)
         )
-    }
-
-    @Test fun `archive strategy currently delegates to mirror`() = runBlocking {
-        var receivedEmail: SmsEmail? = null
-        val mirror = object : BackupStrategy {
-            override suspend fun execute(
-                conversation: SmsConversationSnapshot,
-                email: SmsEmail,
-                snapshotHash: String,
-                existingSnapshot: ConversationSnapshotEntity?,
-                onPreviousSnapshotTrashFailure: suspend (Throwable) -> Unit
-            ): Result<GmailUploadResult> {
-                receivedEmail = email
-                return Result.success(uploadResult)
-            }
-        }
-        val email = email()
-
-        val result = ArchiveAppendBackupStrategy(mirror).execute(
-            conversation(), email, "hash", null, {}
-        )
-
-        assertSame(email, receivedEmail)
-        assertEquals(uploadResult, result.getOrThrow())
     }
 
     @Test fun `mirror strategy preserves existing upload result`() = runBlocking {
@@ -91,6 +67,14 @@ class BackupStrategyTest {
             accountId = "account-id",
             accountEmail = "account@example.com"
         )
+
+    private fun archiveStrategy() = ArchiveAppendBackupStrategy(
+        locateArchive = { _, _ -> Result.success(null) },
+        uploadConversation = { Result.success(uploadResult) },
+        persistSnapshot = {},
+        accountId = "account-id",
+        accountEmail = "account@example.com"
+    )
 
     private fun conversation() = SmsConversationSnapshot(
         threadId = 7L,

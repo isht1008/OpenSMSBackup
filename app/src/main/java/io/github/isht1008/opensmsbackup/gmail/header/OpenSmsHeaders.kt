@@ -29,6 +29,9 @@ object OpenSmsHeaders {
     const val SNAPSHOT_HASH =
         "X-OpenSMSBackup-Snapshot-Hash"
 
+    const val CONVERSATION_KEY =
+        "X-OpenSMSBackup-Conversation-Key"
+
     const val MESSAGE_COUNT =
         "X-OpenSMSBackup-Message-Count"
 

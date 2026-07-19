@@ -1,6 +1,7 @@
 package io.github.isht1008.opensmsbackup.gmail.mime
 
 import io.github.isht1008.opensmsbackup.gmail.backup.SmsConversationSnapshot
+import io.github.isht1008.opensmsbackup.gmail.backup.ArchiveConversationIdentity
 import io.github.isht1008.opensmsbackup.gmail.header.OpenSmsHeaders
 import io.github.isht1008.opensmsbackup.gmail.model.EmailAttachment
 import io.github.isht1008.opensmsbackup.gmail.model.SmsEmail
@@ -532,6 +533,14 @@ class ConversationMimeMessageBuilder {
             put(
                 OpenSmsHeaders.SNAPSHOT_HASH,
                 snapshotHash
+            )
+
+            put(
+                OpenSmsHeaders.CONVERSATION_KEY,
+                ArchiveConversationIdentity.key(
+                    conversation.address,
+                    accountEmail
+                )
             )
 
             put(

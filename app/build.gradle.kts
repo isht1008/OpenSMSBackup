@@ -160,6 +160,7 @@ dependencies {
     kapt(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
 
     androidTestImplementation(
         platform(libs.androidx.compose.bom)

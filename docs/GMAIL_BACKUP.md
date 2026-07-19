@@ -58,4 +58,8 @@ On the primary device, verify background progress after minimizing, swiping rece
 
 **Implemented:** Per-profile backup mode persistence and centralized strategy selection. Mirror mode owns the existing per-conversation upload, Room snapshot update, and previous-snapshot Trash sequence. Strategy instances are constructed once per backup run.
 
-**Partially implemented:** `ARCHIVE_APPEND_ONLY` currently delegates to mirror mode and therefore has no archive behavior yet. No UI exposes mode selection.
+**Implemented:** `ARCHIVE_APPEND_ONLY` reads the latest Room-referenced Gmail format-v3 attachment, fingerprints archived and on-device messages using normalized address, direction, timestamp, and body, and uploads a chronologically merged snapshot only when new messages exist. Messages deleted from the phone remain archived, and prior archive snapshots are not moved to Trash. Gmail reads reuse the existing bounded retry and error-classification path.
+
+**Implemented:** Archive discovery treats Room's Gmail message ID as a cache. It validates that message first, then falls back to a bounded `SMS/Conversations` label search and selects the newest valid format-v3 snapshot matching normalized conversation and account identity. Valid recovery repairs the Room cache. New snapshots include a deterministic `X-OpenSMSBackup-Conversation-Key`; older format-v3 snapshots remain discoverable through label-scoped attachment validation.
+
+**Partially implemented:** No UI exposes mode selection. Full remote index reconstruction remains planned. Number normalization is deterministic but does not yet infer missing country codes.

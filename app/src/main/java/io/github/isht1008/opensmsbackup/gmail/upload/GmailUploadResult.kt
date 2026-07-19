@@ -7,7 +7,9 @@ data class GmailUploadResult(
 
     val threadId: String?,
 
-    val labelIds: List<String>
+    val labelIds: List<String>,
+
+    val wasUploaded: Boolean = true
 
 
 )

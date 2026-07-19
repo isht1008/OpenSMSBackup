@@ -3,6 +3,7 @@ package io.github.isht1008.opensmsbackup.gmail.backup
 import android.content.Context
 import android.util.Log
 import io.github.isht1008.opensmsbackup.account.data.MultiAccountRepository
+import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.database.BackupAccountEntity
 import io.github.isht1008.opensmsbackup.database.DatabaseProvider
@@ -144,7 +145,20 @@ class GmailBackupManager {
                     accountEmail = trimmedEmail
                 )
                 val archiveAppendStrategy =
-                    ArchiveAppendBackupStrategy(mirrorStrategy)
+                    ArchiveAppendBackupStrategy(
+                        locator = GmailArchiveLocator(
+                            lookup = GmailArchivedConversationReader(
+                                gmail = gmailService,
+                                profileId = accountProfile.profileId,
+                                onRetry = onRetry
+                            ),
+                            accountEmail = trimmedEmail
+                        ),
+                        uploader = uploader,
+                        snapshotDao = snapshotDao,
+                        accountId = accountId,
+                        accountEmail = trimmedEmail
+                    )
                 val backupMode = MultiAccountRepository.create(context)
                     .getBackupMode(accountProfile.profileId)
                 val backupStrategy = BackupStrategySelector(
@@ -205,6 +219,7 @@ class GmailBackupManager {
                         )
 
                     if (
+                        backupMode == GmailBackupMode.MIRROR &&
                         existingSnapshot?.snapshotHash ==
                         snapshotHash
                     ) {
@@ -263,8 +278,7 @@ class GmailBackupManager {
 
                     uploadResult
                         .onSuccess { gmailResult ->
-
-                            uploaded++
+                            if (gmailResult.wasUploaded) uploaded++ else skipped++
                             circuitBreaker.recordSuccess()
                         }
                         .onFailure { error ->
