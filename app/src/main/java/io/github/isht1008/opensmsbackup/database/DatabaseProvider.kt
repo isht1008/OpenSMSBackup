@@ -182,6 +182,15 @@ object DatabaseProvider {
             }
         }
 
+    val MIGRATION_3_4 =
+        object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "UPDATE `account_settings` SET `backup_mode` = 'MIRROR'"
+                )
+            }
+        }
+
     @Volatile
     private var instance: BackupDatabase? = null
 
@@ -200,7 +209,8 @@ object DatabaseProvider {
                     )
                         .addMigrations(
                             MIGRATION_1_2,
-                            MIGRATION_2_3
+                            MIGRATION_2_3,
+                            MIGRATION_3_4
                         )
                         .build()
                         .also { database ->

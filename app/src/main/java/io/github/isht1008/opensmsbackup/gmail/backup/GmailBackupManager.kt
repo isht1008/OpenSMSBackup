@@ -2,9 +2,9 @@ package io.github.isht1008.opensmsbackup.gmail.backup
 
 import android.content.Context
 import android.util.Log
+import io.github.isht1008.opensmsbackup.account.data.MultiAccountRepository
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.database.BackupAccountEntity
-import io.github.isht1008.opensmsbackup.database.ConversationSnapshotEntity
 import io.github.isht1008.opensmsbackup.database.DatabaseProvider
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
 import io.github.isht1008.opensmsbackup.gmail.mime.ConversationMimeMessageBuilder
@@ -137,6 +137,21 @@ class GmailBackupManager {
                         onRetry = onRetry
                     )
 
+                val mirrorStrategy = MirrorBackupStrategy(
+                    uploader = uploader,
+                    snapshotDao = snapshotDao,
+                    accountId = accountId,
+                    accountEmail = trimmedEmail
+                )
+                val archiveAppendStrategy =
+                    ArchiveAppendBackupStrategy(mirrorStrategy)
+                val backupMode = MultiAccountRepository.create(context)
+                    .getBackupMode(accountProfile.profileId)
+                val backupStrategy = BackupStrategySelector(
+                    mirrorStrategy = mirrorStrategy,
+                    archiveAppendStrategy = archiveAppendStrategy
+                ).select(backupMode)
+
                 val classifier = GmailErrorClassifier()
                 val circuitBreaker = GmailFailureCircuitBreaker()
                 var abortFailure: io.github.isht1008.opensmsbackup.gmail.error.GmailFailure? = null
@@ -215,95 +230,42 @@ class GmailBackupManager {
                             snapshotHash = snapshotHash
                         )
 
-                    val uploadResult =
-                        uploader.uploadConversation(
-                            email
-                        )
+                    val uploadResult = backupStrategy.execute(
+                        conversation = conversation,
+                        email = email,
+                        snapshotHash = snapshotHash,
+                        existingSnapshot = existingSnapshot,
+                        onPreviousSnapshotTrashFailure = { error ->
+                            val failure =
+                                if (error is GmailOperationException) error.failure
+                                else classifier.classify(error)
+
+                            if (failure.reauthorizationRequired) {
+                                GmailAccountManager(context)
+                                    .markAuthorizationRequired(accountProfile)
+                            }
+
+                            if (failure.stopBackup) {
+                                abortFailure = failure
+                                abortState = GmailBackupCompletionState.ABORTED_FATAL
+                            }
+
+                            if (warnings.size < 20) {
+                                warnings.add(
+                                    "Thread ${conversation.threadId}: new snapshot uploaded, " +
+                                        "but the previous snapshot could not be moved to Trash" +
+                                        error.message?.takeIf { it.isNotBlank() }
+                                            ?.let { " - $it" }.orEmpty()
+                                )
+                            }
+                        }
+                    )
 
                     uploadResult
                         .onSuccess { gmailResult ->
 
-                            snapshotDao.insert(
-                                ConversationSnapshotEntity(
-                                    id =
-                                        existingSnapshot?.id
-                                            ?: 0L,
-                                    accountId = accountId,
-                                    accountEmail =
-                                        trimmedEmail,
-                                    androidThreadId =
-                                        conversation.threadId,
-                                    address =
-                                        conversation.address
-                                            .orEmpty(),
-                                    contactName =
-                                        conversation.contactName,
-                                    messageCount =
-                                        conversation.messageCount,
-                                    snapshotHash =
-                                        snapshotHash,
-                                    gmailMessageId =
-                                        gmailResult.messageId,
-                                    gmailThreadId =
-                                        gmailResult.threadId,
-                                    firstMessageDate =
-                                        conversation.firstMessageDate,
-                                    lastMessageDate =
-                                        conversation.lastMessageDate
-                                )
-                            )
-
                             uploaded++
                             circuitBreaker.recordSuccess()
-
-                            val oldMessageId =
-                                existingSnapshot
-                                    ?.gmailMessageId
-                                    ?.takeIf { messageId ->
-                                        messageId.isNotBlank() &&
-                                                messageId !=
-                                                gmailResult.messageId
-                                    }
-
-                            if (oldMessageId != null) {
-                                uploader.trashMessage(
-                                    oldMessageId
-                                ).onFailure { error ->
-
-                                    val failure =
-                                        if (error is GmailOperationException) error.failure
-                                        else classifier.classify(error)
-
-                                    if (failure.reauthorizationRequired) {
-                                        GmailAccountManager(context)
-                                            .markAuthorizationRequired(accountProfile)
-                                    }
-
-                                    if (failure.stopBackup) {
-                                        abortFailure = failure
-                                        abortState = GmailBackupCompletionState.ABORTED_FATAL
-                                    }
-
-                                    if (warnings.size < 20) {
-                                        warnings.add(
-                                            buildString {
-                                                append(
-                                                    "Thread ${conversation.threadId}: new snapshot uploaded, but the previous snapshot could not be moved to Trash"
-                                                )
-
-                                                error.message
-                                                    ?.takeIf { message ->
-                                                        message.isNotBlank()
-                                                    }
-                                                    ?.let { message ->
-                                                        append(" - ")
-                                                        append(message)
-                                                    }
-                                            }
-                                        )
-                                    }
-                                }
-                            }
                         }
                         .onFailure { error ->
                             failed++

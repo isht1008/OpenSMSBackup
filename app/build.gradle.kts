@@ -95,6 +95,10 @@ android {
 
     }
 
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+
 }
 
 kapt {
@@ -171,6 +175,10 @@ dependencies {
 
     androidTestImplementation(
         libs.androidx.junit
+    )
+
+    androidTestImplementation(
+        "androidx.room:room-testing:2.8.0"
     )
 
     debugImplementation(

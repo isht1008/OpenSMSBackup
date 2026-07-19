@@ -53,3 +53,9 @@ Upload remains single-attempt because remote deduplication/index reconstruction 
 ### Sprint 2C device verification
 
 On the primary device, verify background progress after minimizing, swiping recents, reopening, and Activity rotation; cancel separately from the notification and app, including during a Sprint 2B retry delay; confirm no next conversation starts after cancellation. Keep Settings/History usable, reject disconnect of the active profile, and verify selecting another profile cannot retarget work. Attempt duplicate starts and confirm one request. Exercise offline, mid-run network loss, revoked authorization, temporary failure, and a successful three-conversation run while checking profile state, bounded abort, snapshot safety, and duplicate Gmail messages. Verify progress/terminal notification cleanup with notification permission granted and denied. Record force-stop behavior (Android suppresses work until the app is started again) and reboot behavior without claiming recurring scheduling or exact resume.
+
+## Sprint 3A backup strategy foundation
+
+**Implemented:** Per-profile backup mode persistence and centralized strategy selection. Mirror mode owns the existing per-conversation upload, Room snapshot update, and previous-snapshot Trash sequence. Strategy instances are constructed once per backup run.
+
+**Partially implemented:** `ARCHIVE_APPEND_ONLY` currently delegates to mirror mode and therefore has no archive behavior yet. No UI exposes mode selection.

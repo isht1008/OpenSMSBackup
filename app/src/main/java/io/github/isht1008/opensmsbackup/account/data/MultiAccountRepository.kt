@@ -34,6 +34,30 @@ class MultiAccountRepository(
         )
     }
 
+    suspend fun getBackupMode(
+        profileId: String
+    ): GmailBackupMode =
+        GmailBackupMode.fromStorage(
+            accountDao.findSettings(profileId)?.backupMode
+        )
+
+    suspend fun setBackupMode(
+        profileId: String,
+        mode: GmailBackupMode
+    ) {
+        val settings = accountDao.findSettings(profileId)
+            ?: AccountSettingsEntity(profileId = profileId).also {
+                requireNotNull(accountDao.findProfileById(profileId)) {
+                    "Cannot update settings for an unknown account profile."
+                }
+                accountDao.insertSettings(it)
+            }
+
+        accountDao.updateSettings(
+            settings.copy(backupMode = mode.name)
+        )
+    }
+
     suspend fun getSelectedProfile(): AccountProfileEntity? {
         val selectedProfileId =
             selectedProfileStore

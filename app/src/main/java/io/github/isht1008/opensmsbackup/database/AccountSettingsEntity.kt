@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
 
 @Entity(
     tableName = "account_settings",
@@ -35,7 +36,7 @@ data class AccountSettingsEntity(
     val includeContactNames: Boolean = true,
 
     @ColumnInfo(name = "backup_mode")
-    val backupMode: String = BACKUP_MODE_ARCHIVE,
+    val backupMode: String = GmailBackupMode.MIRROR.name,
 
     @ColumnInfo(name = "backup_label")
     val backupLabel: String = "SMS",
@@ -45,14 +46,4 @@ data class AccountSettingsEntity(
 
     @ColumnInfo(name = "encryption_enabled")
     val encryptionEnabled: Boolean = false
-) {
-
-    companion object {
-
-        const val BACKUP_MODE_ARCHIVE =
-            "ARCHIVE"
-
-        const val BACKUP_MODE_MIRROR =
-            "MIRROR"
-    }
-}
+)
