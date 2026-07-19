@@ -13,4 +13,6 @@ import kotlinx.coroutines.flow.Flow
     suspend fun findLatest(profileId: String, deviceId: String): BackupVerificationEntity?
     @Query("SELECT * FROM backup_verifications WHERE id = :id LIMIT 1")
     suspend fun findById(id: Long): BackupVerificationEntity?
+    @Query("SELECT * FROM backup_verifications ORDER BY completed_at DESC LIMIT :limit")
+    fun observeHistory(limit: Int = 250): Flow<List<BackupVerificationEntity>>
 }

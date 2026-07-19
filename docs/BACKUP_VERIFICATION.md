@@ -21,3 +21,9 @@ Comparison is approximately O(local + archived messages). Gmail uses page tokens
 Results contain counts and a short summary, never SMS bodies. WorkManager data contains only scalar identifiers, stages, and counts. Verification is unique per profile/device, cancellable, and persisted in Room schema v5.
 
 Verification confirms that current local SMS messages are represented in the selected Gmail archive scope at verification time. It does not guarantee future Gmail availability, future decryptability, or successful migration by another tool. Restore remains outside backup-only v1.
+
+## Backup Health dashboard
+
+**Implemented:** Backup History now opens a Material 3 Backup Health dashboard. It keeps local JSON backup completion separate from Gmail verification history, shows the latest archive assessment, aggregate statistics, an integrity trend, status badges, filtering, search, empty/loading states, and a dedicated verification-detail route. History is streamed newest-first from Room and rendered with `LazyColumn`; filtering and statistics use an immutable platform-independent calculation layer.
+
+Local backup files do not currently persist start time, duration, Gmail account, mode, or device metadata, so the Latest Backup card labels those fields as unavailable or local rather than inferring them. Verification duration is presented explicitly as verification duration and is never described as backup runtime.

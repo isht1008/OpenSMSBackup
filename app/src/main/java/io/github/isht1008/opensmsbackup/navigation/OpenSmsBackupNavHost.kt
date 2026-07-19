@@ -5,10 +5,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import io.github.isht1008.opensmsbackup.ui.screen.BackupHistoryScreen
+import io.github.isht1008.opensmsbackup.ui.screen.BackupHealthScreen
+import io.github.isht1008.opensmsbackup.ui.screen.BackupHealthDetailScreen
 import io.github.isht1008.opensmsbackup.ui.screen.HomeScreen
 import io.github.isht1008.opensmsbackup.ui.screen.SettingsScreen
-import io.github.isht1008.opensmsbackup.viewmodel.BackupHistoryViewModel
+import io.github.isht1008.opensmsbackup.viewmodel.BackupHealthViewModel
+import io.github.isht1008.opensmsbackup.viewmodel.BackupHealthDetailViewModel
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 
 @Composable
@@ -48,14 +50,21 @@ fun OpenSmsBackupNavHost(
 
         composable(Screen.BackupHistory.route) {
 
-            val viewModel: BackupHistoryViewModel = viewModel()
+            val viewModel: BackupHealthViewModel = viewModel()
 
-            BackupHistoryScreen(
+            BackupHealthScreen(
                 viewModel = viewModel,
                 onBackClick = {
                     navController.popBackStack()
-                }
+                },
+                onCreateBackup = { navController.popBackStack() },
+                onOpenDetails = { navController.navigate(Screen.BackupHealthDetail.route(it)) }
             )
+        }
+
+        composable(Screen.BackupHealthDetail.route) {
+            val viewModel: BackupHealthDetailViewModel = viewModel()
+            BackupHealthDetailScreen(viewModel, onBackClick = { navController.popBackStack() })
         }
 
 
