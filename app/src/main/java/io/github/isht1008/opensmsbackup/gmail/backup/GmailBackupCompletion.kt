@@ -4,6 +4,7 @@ import io.github.isht1008.opensmsbackup.gmail.error.GmailFailure
 
 enum class GmailBackupCompletionState {
     COMPLETED,
+    LIMITED_TEST_COMPLETED,
     CANCELLED,
     ABORTED_FATAL,
     ABORTED_REPEATED_FAILURES,
@@ -17,6 +18,7 @@ data class GmailBackupCompletion(
     val uploaded: Int,
     val unchanged: Int,
     val failed: Int,
+    val previousSnapshotsTrashed: Int = 0,
     val remaining: Int = (total - checked).coerceAtLeast(0),
     val reason: String? = null,
     val profileId: String? = null,
@@ -24,6 +26,9 @@ data class GmailBackupCompletion(
     val failure: GmailFailure? = null,
     val totalMessages: Int = 0,
     val stoppedAtSafetyLimit: Boolean = false,
+    val isLimitedTest: Boolean = false,
+    val sourceConversationTotal: Int = total,
+    val sourceMessageTotal: Int = totalMessages,
     val failures: List<String> = emptyList(),
     val warnings: List<String> = emptyList()
 )

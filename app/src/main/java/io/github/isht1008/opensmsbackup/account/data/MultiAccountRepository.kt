@@ -54,7 +54,11 @@ class MultiAccountRepository(
             }
 
         accountDao.updateSettings(
-            settings.copy(backupMode = mode.name)
+            GmailBackupPolicyMetadata.changed(
+                settings = settings,
+                newMode = mode,
+                changedAt = System.currentTimeMillis()
+            )
         )
     }
 
@@ -76,7 +80,8 @@ class MultiAccountRepository(
         accountEmail: String,
         providerAccountId: String? = null,
         displayName: String? = null,
-        photoUrl: String? = null
+        photoUrl: String? = null,
+        connectionState: String = AccountProfileEntity.CONNECTION_STATE_CONNECTED
     ): AccountProfileEntity {
         val normalizedEmail =
             normalizeEmail(accountEmail)
@@ -110,9 +115,7 @@ class MultiAccountRepository(
                     photoUrl =
                         photoUrl
                             ?: existingProfile.photoUrl,
-                    connectionState =
-                        AccountProfileEntity
-                            .CONNECTION_STATE_CONNECTED,
+                    connectionState = connectionState,
                     updatedTime = now
                 )
 
@@ -137,6 +140,7 @@ class MultiAccountRepository(
                 accountEmail = normalizedEmail,
                 displayName = displayName,
                 photoUrl = photoUrl,
+                connectionState = connectionState,
                 createdTime = now,
                 updatedTime = now
             )

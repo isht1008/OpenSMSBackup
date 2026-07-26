@@ -30,4 +30,24 @@ class BackupOnlyArchitectureTest {
             assertFalse("Backup-only source contains $forbidden", content.contains(forbidden))
         }
     }
+
+    @Test fun `account exit and authorization code cannot mutate Gmail data`() {
+        val roots = listOf(
+            File("src/main/java/io/github/isht1008/opensmsbackup/gmail/account"),
+            File("src/main/java/io/github/isht1008/opensmsbackup/gmail/auth")
+        )
+        val content = roots.flatMap { root ->
+            root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
+        }.joinToString("\n") { it.readText() }
+        listOf(
+            "messages().insert",
+            "messages().delete",
+            "messages().modify",
+            "labels().create",
+            "labels().delete",
+            "labels().update"
+        ).forEach { forbidden ->
+            assertFalse("Account-exit code contains Gmail mutation $forbidden", content.contains(forbidden))
+        }
+    }
 }

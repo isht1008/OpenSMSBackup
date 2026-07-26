@@ -16,6 +16,8 @@ import io.github.isht1008.opensmsbackup.device.DeviceProfileStore
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
 import io.github.isht1008.opensmsbackup.sms.SmsRepository
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupConversationLimiter
+import io.github.isht1008.opensmsbackup.gmail.backup.SmsConversationSnapshotBuilder
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -29,6 +31,7 @@ object BackupVerificationWorkContract {
     private const val PROCESSED = "verification.processed"
     private const val TOTAL = "verification.total"
     private const val CREATED_PREFIX = "backup-verification-created-"
+    private const val PROFILE_TAG_PREFIX = "backup-verification-profile-"
     fun uniqueName(profileId: String, deviceId: String) = "backup-verification-$profileId-$deviceId"
     fun input(profileId: String, deviceId: String) = Data.Builder().putString(PROFILE, profileId).putString(DEVICE, deviceId).build()
     fun profile(data: Data) = data.getString(PROFILE)
@@ -40,6 +43,7 @@ object BackupVerificationWorkContract {
             data.getInt(TOTAL, -1).takeIf { total -> total >= 0 })
     }
     fun createdTag(value: Long) = "$CREATED_PREFIX$value"
+    fun profileTag(profileId: String) = "$PROFILE_TAG_PREFIX$profileId"
     fun createdAt(tags: Set<String>) = tags.firstNotNullOfOrNull {
         it.removePrefix(CREATED_PREFIX).takeIf { _ -> it.startsWith(CREATED_PREFIX) }?.toLongOrNull()
     } ?: 0L
@@ -55,9 +59,14 @@ class BackupVerificationWorker(context: Context, params: WorkerParameters) : Cor
         val device = deviceStore.getOrCreate()
         if (device.deviceId != expectedDevice) return Result.failure()
         val mode = MultiAccountRepository.create(applicationContext).getBackupMode(profileId)
-        val local = SmsRepository().getSmsMessages(applicationContext, false)
+        val allLocal = SmsRepository().getSmsMessages(applicationContext, false)
+        val localScope = GmailBackupConversationLimiter.applyConversations(
+            SmsConversationSnapshotBuilder().build(allLocal)
+        )
+        val local = localScope.conversations.flatMap { it.messages }
         val request = BackupVerificationRequest(profileId, profile.accountEmail, device.deviceId,
-            device.displayName, mode, device.defaultRegion, local)
+            device.displayName, mode, device.defaultRegion, local,
+            completeLocalScope = !localScope.isLimitedTest)
         val labelId = deviceStore.getGmailDeviceLabelId(profileId)
         val repository = if (labelId == null) {
             VerificationArchiveRepository { kotlin.Result.failure(IllegalStateException("Device archive label unavailable")) }
@@ -99,10 +108,14 @@ class BackupVerificationWorkCoordinator(private val context: Context) {
         val request = OneTimeWorkRequestBuilder<BackupVerificationWorker>()
             .setInputData(BackupVerificationWorkContract.input(profileId, deviceId))
             .addTag(BackupVerificationWorkContract.TAG)
+            .addTag(BackupVerificationWorkContract.profileTag(profileId))
             .addTag(BackupVerificationWorkContract.createdTag(System.currentTimeMillis())).build()
         manager.enqueueUniqueWork(unique, ExistingWorkPolicy.KEEP, request)
         return request.id
     }
     fun observe() = WorkManager.getInstance(context).getWorkInfosByTagFlow(BackupVerificationWorkContract.TAG)
+    suspend fun hasActiveWork(profileId: String): Boolean = WorkManager.getInstance(context)
+        .getWorkInfosByTagFlow(BackupVerificationWorkContract.profileTag(profileId))
+        .first().any { !it.state.isFinished }
     fun cancel(id: UUID) = WorkManager.getInstance(context).cancelWorkById(id)
 }

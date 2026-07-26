@@ -75,7 +75,6 @@ class GmailBackupWorker(
                 context = applicationContext,
                 accountProfile = profile,
                 includeContactNames = input.includeContactNames,
-                maxConversations = input.maximumConversations,
                 onProgress = { checked, total, uploaded, unchanged, failed ->
                     latest = GmailBackupWorkProgress(
                         phase = GmailBackupPhase.RUNNING,

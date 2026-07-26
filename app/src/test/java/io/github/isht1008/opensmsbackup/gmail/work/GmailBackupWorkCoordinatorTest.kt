@@ -15,7 +15,7 @@ class GmailBackupWorkCoordinatorTest {
     @Test fun `same profile active work prevents duplicate enqueue`() = runBlocking {
         val activeId = UUID.randomUUID()
         val gateway = FakeGateway(profileActiveId = activeId)
-        val result = coordinator(gateway).enqueueManual("profile-a", true, 3)
+        val result = coordinator(gateway).enqueueManual("profile-a", true)
         assertEquals(GmailBackupEnqueueResult.AlreadyRunning(activeId), result)
         assertNull(gateway.enqueuedRequest)
     }
@@ -23,14 +23,14 @@ class GmailBackupWorkCoordinatorTest {
     @Test fun `global active work conservatively prevents another profile`() = runBlocking {
         val activeId = UUID.randomUUID()
         val gateway = FakeGateway(globalActiveId = activeId)
-        val result = coordinator(gateway).enqueueManual("profile-b", true, 3)
+        val result = coordinator(gateway).enqueueManual("profile-b", true)
         assertEquals(GmailBackupEnqueueResult.AlreadyRunning(activeId), result)
         assertNull(gateway.enqueuedRequest)
     }
 
     @Test fun `manual enqueue uses immutable profile mode name and tags`() = runBlocking {
         val gateway = FakeGateway()
-        val result = coordinator(gateway).enqueueManual("profile-a", true, 3)
+        val result = coordinator(gateway).enqueueManual("profile-a", true)
         assertTrue(result is GmailBackupEnqueueResult.Enqueued)
         assertEquals(
             GmailBackupWorkContract.uniqueWorkName("profile-a"),
@@ -44,14 +44,14 @@ class GmailBackupWorkCoordinatorTest {
         assertTrue(request.tags.contains(GmailBackupWorkContract.profileTag("profile-a")))
     }
 
-    @Test fun `normal production Gmail backup has no conversation limit`() = runBlocking {
+    @Test fun `temporary limit is not duplicated in WorkManager input`() = runBlocking {
         val gateway = FakeGateway()
 
-        coordinator(gateway).enqueueManual("profile-a", true, null)
+        coordinator(gateway).enqueueManual("profile-a", true)
 
         val request = requireNotNull(gateway.enqueuedRequest)
-        val input = requireNotNull(GmailBackupWorkContract.readInput(request.workSpec.input))
-        assertNull(input.maximumConversations)
+        requireNotNull(GmailBackupWorkContract.readInput(request.workSpec.input))
+        assertTrue(request.workSpec.input.keyValueMap.keys.none { it.contains("maximum_conversations") })
     }
 
     @Test fun `cancel targets exact work request`() {

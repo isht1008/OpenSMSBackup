@@ -38,6 +38,12 @@ data class AccountSettingsEntity(
     @ColumnInfo(name = "backup_mode")
     val backupMode: String = GmailBackupMode.ARCHIVE_APPEND_ONLY.name,
 
+    @ColumnInfo(name = "previous_policy")
+    val previousPolicy: String? = null,
+
+    @ColumnInfo(name = "policy_changed_at")
+    val policyChangedAt: Long? = null,
+
     @ColumnInfo(name = "backup_label")
     val backupLabel: String = "SMS",
 

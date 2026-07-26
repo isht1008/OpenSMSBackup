@@ -76,9 +76,13 @@ class DefaultBackupVerificationEngine(
                 if (duplicates > 0) add(BackupVerificationIssue(BackupVerificationIssueType.DUPLICATE_ARCHIVE_MESSAGE, duplicates))
                 if (archive.unreadableArchiveCount > 0) add(BackupVerificationIssue(
                     BackupVerificationIssueType.UNREADABLE_ARCHIVE, archive.unreadableArchiveCount))
+                if (!request.completeLocalScope) add(
+                    BackupVerificationIssue(BackupVerificationIssueType.SAFETY_LIMIT_REACHED)
+                )
             }
             val percent = if (request.localMessages.isEmpty()) 100.0 else matched * 100.0 / request.localMessages.size
-            val critical = archive.unreadableArchiveCount > 0 || !archive.complete || archive.issues.isNotEmpty()
+            val critical = archive.unreadableArchiveCount > 0 || !archive.complete ||
+                archive.issues.isNotEmpty() || !request.completeLocalScope
             val status = when {
                 missing > 0 -> BackupVerificationStatus.FAILED
                 critical || unexpected > 0 || duplicates > 0 -> BackupVerificationStatus.PARTIALLY_VERIFIED

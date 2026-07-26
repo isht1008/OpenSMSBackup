@@ -16,7 +16,8 @@ data class BackupVerificationProgress(val stage: VerificationStage, val processe
 data class BackupVerificationRequest(
     val profileId: String, val accountEmail: String, val deviceId: String,
     val deviceDisplayName: String, val mode: GmailBackupMode, val defaultRegion: String,
-    val localMessages: List<SmsMessage>
+    val localMessages: List<SmsMessage>,
+    val completeLocalScope: Boolean = true
 )
 
 data class VerificationArchiveSnapshot(

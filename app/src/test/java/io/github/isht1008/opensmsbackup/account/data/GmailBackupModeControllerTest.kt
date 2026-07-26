@@ -12,115 +12,93 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GmailBackupModeControllerTest {
-    @Test fun `new account and invalid storage default to archive`() {
-        assertEquals(
-            GmailBackupMode.ARCHIVE_APPEND_ONLY.name,
-            AccountSettingsEntity(profileId = "new").backupMode
-        )
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, GmailBackupMode.fromStorage(null))
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, GmailBackupMode.fromStorage("invalid"))
-    }
-
-    @Test fun `existing mirror and profile-specific modes are preserved`() = runBlocking {
-        val store = FakeStore(mutableMapOf(
-            "personal" to GmailBackupMode.MIRROR,
-            "work" to GmailBackupMode.ARCHIVE_APPEND_ONLY
-        ))
-        val controller = GmailBackupModeController(store)
-
-        controller.load("personal")
-        assertEquals(GmailBackupMode.MIRROR, controller.state.mode)
-        controller.load("work")
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, controller.state.mode)
-        controller.load("personal")
-        assertEquals(GmailBackupMode.MIRROR, controller.state.mode)
-    }
-
-    @Test fun `archive selection persists immediately`() = runBlocking {
-        val store = FakeStore(mutableMapOf("p" to GmailBackupMode.MIRROR))
-        val controller = GmailBackupModeController(store)
-        controller.load("p")
-
-        assertTrue(controller.requestSelection(GmailBackupMode.ARCHIVE_APPEND_ONLY, false))
-        assertTrue(controller.saveArchive(false))
-
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, store.values["p"])
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, controller.state.mode)
-    }
-
-    @Test fun `mirror requires confirmation and cancellation preserves archive`() = runBlocking {
+    @Test fun `archive to mirror requires confirmation`() = runBlocking {
         val store = FakeStore(mutableMapOf("p" to GmailBackupMode.ARCHIVE_APPEND_ONLY))
         val controller = GmailBackupModeController(store)
         controller.load("p")
 
-        assertFalse(controller.requestSelection(GmailBackupMode.MIRROR, false))
-        assertTrue(controller.state.mirrorConfirmationPending)
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, store.values["p"])
-        controller.cancelMirrorConfirmation()
+        assertTrue(controller.openPolicyWizard(false))
+        controller.choosePendingMode(GmailBackupMode.MIRROR)
+        assertEquals(0, store.writeCount)
+        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, controller.state.mode)
+        assertTrue(controller.confirmPolicyChange(false))
 
-        assertFalse(controller.state.mirrorConfirmationPending)
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, store.values["p"])
-    }
-
-    @Test fun `confirmed mirror persists`() = runBlocking {
-        val store = FakeStore(mutableMapOf("p" to GmailBackupMode.ARCHIVE_APPEND_ONLY))
-        val controller = GmailBackupModeController(store)
-        controller.load("p")
-        controller.requestSelection(GmailBackupMode.MIRROR, false)
-
-        assertTrue(controller.confirmMirror(false))
         assertEquals(GmailBackupMode.MIRROR, store.values["p"])
     }
 
-    @Test fun `active backup blocks mode changes`() = runBlocking {
+    @Test fun `mirror to archive requires confirmation`() = runBlocking {
+        val store = FakeStore(mutableMapOf("p" to GmailBackupMode.MIRROR))
+        val controller = GmailBackupModeController(store)
+        controller.load("p")
+        controller.openPolicyWizard(false)
+        controller.choosePendingMode(GmailBackupMode.ARCHIVE_APPEND_ONLY)
+
+        assertEquals(GmailBackupMode.MIRROR, store.values["p"])
+        assertTrue(controller.confirmPolicyChange(false))
+        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, store.values["p"])
+    }
+
+    @Test fun `cancelling wizard keeps current policy`() = runBlocking {
+        val store = FakeStore(mutableMapOf("p" to GmailBackupMode.ARCHIVE_APPEND_ONLY))
+        val controller = GmailBackupModeController(store)
+        controller.load("p")
+        controller.openPolicyWizard(false)
+        controller.choosePendingMode(GmailBackupMode.MIRROR)
+
+        controller.cancelPolicyWizard()
+
+        assertFalse(controller.state.policyWizardOpen)
+        assertNull(controller.state.pendingMode)
+        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, store.values["p"])
+        assertEquals(0, store.writeCount)
+    }
+
+    @Test fun `active backup prevents wizard and persistence`() = runBlocking {
         val store = FakeStore(mutableMapOf("p" to GmailBackupMode.ARCHIVE_APPEND_ONLY))
         val controller = GmailBackupModeController(store)
         controller.load("p")
 
-        assertFalse(controller.requestSelection(GmailBackupMode.MIRROR, true))
-        assertFalse(controller.saveArchive(true))
-        assertFalse(controller.state.mirrorConfirmationPending)
+        assertFalse(controller.openPolicyWizard(true))
+        assertFalse(controller.confirmPolicyChange(true))
         assertEquals(0, store.writeCount)
     }
 
-    @Test fun `stale profile load cannot replace newer profile state`() = runBlocking {
-        val delayed = CompletableDeferred<GmailBackupMode>()
-        val store = object : GmailBackupModeStore {
-            override suspend fun getBackupMode(profileId: String): GmailBackupMode =
-                if (profileId == "old") delayed.await() else GmailBackupMode.ARCHIVE_APPEND_ONLY
-            override suspend fun setBackupMode(profileId: String, mode: GmailBackupMode) = Unit
-        }
+    @Test fun `multiple accounts retain isolated policies`() = runBlocking {
+        val store = FakeStore(mutableMapOf(
+            "a" to GmailBackupMode.ARCHIVE_APPEND_ONLY,
+            "b" to GmailBackupMode.MIRROR
+        ))
         val controller = GmailBackupModeController(store)
-        val oldLoad = async(start = CoroutineStart.UNDISPATCHED) { controller.load("old") }
-        controller.load("new")
-        delayed.complete(GmailBackupMode.MIRROR)
-        oldLoad.await()
+        controller.load("a")
+        controller.openPolicyWizard(false)
+        controller.choosePendingMode(GmailBackupMode.MIRROR)
+        controller.confirmPolicyChange(false)
 
-        assertEquals("new", controller.state.profileId)
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, controller.state.mode)
-        assertNull(controller.state.errorMessage)
+        assertEquals(GmailBackupMode.MIRROR, store.values["a"])
+        assertEquals(GmailBackupMode.MIRROR, store.values["b"])
+        assertEquals(1, store.writeCount)
     }
 
-    @Test fun `save completion for old profile cannot overwrite switched profile state`() = runBlocking {
-        val saveGate = CompletableDeferred<Unit>()
+    @Test fun `stale save cannot replace newly selected profile state`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
         val store = object : GmailBackupModeStore {
             override suspend fun getBackupMode(profileId: String) =
-                if (profileId == "old") GmailBackupMode.MIRROR else GmailBackupMode.ARCHIVE_APPEND_ONLY
-            override suspend fun setBackupMode(profileId: String, mode: GmailBackupMode) {
-                saveGate.await()
-            }
+                if (profileId == "old") GmailBackupMode.ARCHIVE_APPEND_ONLY else GmailBackupMode.MIRROR
+            override suspend fun setBackupMode(profileId: String, mode: GmailBackupMode) { gate.await() }
         }
         val controller = GmailBackupModeController(store)
         controller.load("old")
-        val oldSave = async(start = CoroutineStart.UNDISPATCHED) {
-            controller.saveArchive(false)
+        controller.openPolicyWizard(false)
+        controller.choosePendingMode(GmailBackupMode.MIRROR)
+        val save = async(start = CoroutineStart.UNDISPATCHED) {
+            controller.confirmPolicyChange(false)
         }
         controller.load("new")
-        saveGate.complete(Unit)
-        oldSave.await()
+        gate.complete(Unit)
+        save.await()
 
         assertEquals("new", controller.state.profileId)
-        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY, controller.state.mode)
+        assertEquals(GmailBackupMode.MIRROR, controller.state.mode)
     }
 
     private class FakeStore(
@@ -133,5 +111,40 @@ class GmailBackupModeControllerTest {
             writeCount++
             values[profileId] = mode
         }
+    }
+}
+
+class GmailBackupPolicyMetadataTest {
+    @Test fun `policy change stores previous current and timestamp without touching other settings`() {
+        val original = AccountSettingsEntity(
+            profileId = "p",
+            backupMode = GmailBackupMode.ARCHIVE_APPEND_ONLY.name,
+            backupLabel = "Custom",
+            includeContactNames = false
+        )
+
+        val changed = GmailBackupPolicyMetadata.changed(
+            original,
+            GmailBackupMode.MIRROR,
+            changedAt = 1234L
+        )
+
+        assertEquals(GmailBackupMode.MIRROR.name, changed.backupMode)
+        assertEquals(GmailBackupMode.ARCHIVE_APPEND_ONLY.name, changed.previousPolicy)
+        assertEquals(1234L, changed.policyChangedAt)
+        assertEquals("Custom", changed.backupLabel)
+        assertFalse(changed.includeContactNames)
+    }
+
+    @Test fun `same policy is a metadata no-op`() {
+        val original = AccountSettingsEntity(profileId = "p")
+        assertEquals(
+            original,
+            GmailBackupPolicyMetadata.changed(
+                original,
+                GmailBackupMode.ARCHIVE_APPEND_ONLY,
+                changedAt = 99L
+            )
+        )
     }
 }

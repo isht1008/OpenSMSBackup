@@ -10,7 +10,8 @@ data class GmailBackupModeUiState(
     val mode: GmailBackupMode? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
-    val mirrorConfirmationPending: Boolean = false,
+    val policyWizardOpen: Boolean = false,
+    val pendingMode: GmailBackupMode? = null,
     val errorMessage: String? = null
 ) {
     val canSelect: Boolean
@@ -48,27 +49,29 @@ class GmailBackupModeController(
             }
     }
 
-    fun requestSelection(mode: GmailBackupMode, backupActive: Boolean): Boolean {
-        if (backupActive || !state.canSelect || state.mode == mode) return false
-        if (mode == GmailBackupMode.MIRROR) {
-            state = state.copy(mirrorConfirmationPending = true, errorMessage = null)
-            return false
-        }
+    fun openPolicyWizard(backupActive: Boolean): Boolean {
+        if (backupActive || !state.canSelect) return false
+        state = state.copy(
+            policyWizardOpen = true,
+            pendingMode = null,
+            errorMessage = null
+        )
         return true
     }
 
-    fun cancelMirrorConfirmation() {
-        state = state.copy(mirrorConfirmationPending = false)
+    fun choosePendingMode(mode: GmailBackupMode) {
+        if (!state.policyWizardOpen || state.isSaving) return
+        state = state.copy(pendingMode = mode.takeIf { it != state.mode })
     }
 
-    suspend fun confirmMirror(backupActive: Boolean): Boolean {
-        if (backupActive || !state.mirrorConfirmationPending) return false
-        return save(GmailBackupMode.MIRROR)
+    fun cancelPolicyWizard() {
+        state = state.copy(policyWizardOpen = false, pendingMode = null)
     }
 
-    suspend fun saveArchive(backupActive: Boolean): Boolean {
-        if (backupActive || !state.canSelect) return false
-        return save(GmailBackupMode.ARCHIVE_APPEND_ONLY)
+    suspend fun confirmPolicyChange(backupActive: Boolean): Boolean {
+        if (backupActive || !state.policyWizardOpen) return false
+        val mode = state.pendingMode ?: return false
+        return save(mode)
     }
 
     private suspend fun save(mode: GmailBackupMode): Boolean {
@@ -77,7 +80,8 @@ class GmailBackupModeController(
         val generation = ++operationGeneration
         state = state.copy(
             isSaving = true,
-            mirrorConfirmationPending = false,
+            policyWizardOpen = false,
+            pendingMode = null,
             errorMessage = null
         )
         return runCatching { store.setBackupMode(profileId, mode) }

@@ -1,8 +1,6 @@
 package io.github.isht1008.opensmsbackup.ui.component
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
@@ -15,15 +13,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
+import io.github.isht1008.opensmsbackup.database.BackupVerificationEntity
+import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun AccountProfileCard(
     profile: AccountProfileEntity,
+    policy: GmailBackupMode,
+    lastBackupTime: Long?,
+    verification: BackupVerificationEntity?,
     isSelected: Boolean,
     isBusy: Boolean,
     onSelect: () -> Unit,
     onAuthorize: () -> Unit,
-    onDisconnect: () -> Unit
+    onChangePolicy: () -> Unit,
+    onDisconnect: () -> Unit,
+    onRevoke: () -> Unit
 ) {
     val status =
         when (profile.connectionState) {
@@ -58,6 +65,22 @@ fun AccountProfileCard(
             )
 
             Text(
+                text = "Policy: ${if (policy == GmailBackupMode.ARCHIVE_APPEND_ONLY) "Archive" else "Mirror"}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "Last backup: ${lastBackupTime?.let { DateFormat.getDateTimeInstance().format(Date(it)) } ?: "Not available"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Backup health: ${verificationHealth(verification)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
                 text =
                     if (isSelected) {
                         "$status • Selected account"
@@ -77,10 +100,13 @@ fun AccountProfileCard(
                     }
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    enabled = !isBusy,
+                    onClick = onChangePolicy
+                ) {
+                    Text("Change Policy")
+                }
                 when (profile.connectionState) {
                     AccountProfileEntity
                         .CONNECTION_STATE_CONNECTED -> {
@@ -97,7 +123,13 @@ fun AccountProfileCard(
                             enabled = !isBusy,
                             onClick = onDisconnect
                         ) {
-                            Text("Disconnect")
+                            Text("Disconnect Account")
+                        }
+                        TextButton(
+                            enabled = !isBusy,
+                            onClick = onRevoke
+                        ) {
+                            Text("Disconnect and Revoke Google Access")
                         }
                     }
 
@@ -116,4 +148,13 @@ fun AccountProfileCard(
             }
         }
     }
+}
+
+private fun verificationHealth(value: BackupVerificationEntity?): String = when (value?.status) {
+    "VERIFIED" -> "Verified"
+    "PARTIALLY_VERIFIED" -> "Needs attention"
+    "FAILED" -> "Failed"
+    "CANCELLED" -> "Cancelled"
+    "NOT_AVAILABLE" -> "Not available"
+    else -> "Not verified"
 }

@@ -21,7 +21,8 @@ class GmailAccountManager(
 
         return accountRepository
             .createOrReconnectProfile(
-                accountEmail = email
+                accountEmail = email,
+                connectionState = AccountProfileEntity.CONNECTION_STATE_AUTHORIZATION_REQUIRED
             )
     }
 

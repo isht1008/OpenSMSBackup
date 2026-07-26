@@ -10,6 +10,8 @@ class BackupVerificationWorkContractTest {
             BackupVerificationWorkContract.uniqueName("b", "d"))
         assertNotEquals(BackupVerificationWorkContract.uniqueName("a", "d"),
             BackupVerificationWorkContract.uniqueName("a", "e"))
+        assertNotEquals(BackupVerificationWorkContract.profileTag("a"),
+            BackupVerificationWorkContract.profileTag("b"))
     }
     @Test fun `work data contains only small scalar identifiers and progress`() {
         val input = BackupVerificationWorkContract.input("profile", "device")

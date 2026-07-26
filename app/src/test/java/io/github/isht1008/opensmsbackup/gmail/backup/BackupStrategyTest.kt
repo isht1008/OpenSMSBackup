@@ -87,6 +87,35 @@ class BackupStrategyTest {
         assertEquals(1, trashCalls)
     }
 
+    @Test fun `mirror trashes only after upload and persistence succeed`() = runBlocking {
+        val events = mutableListOf<String>()
+        val strategy = MirrorBackupStrategy(
+            uploadConversation = { events += "upload"; Result.success(uploadResult) },
+            trashMessage = { events += "trash"; Result.success(Unit) },
+            persistSnapshot = { events += "persist" },
+            accountId = "account-id",
+            accountEmail = "account@example.com",
+            canTrashPrevious = { _, _ -> true }
+        )
+        strategy.execute(conversation(), email(), "changed", existingSnapshot(), {}).getOrThrow()
+        assertEquals(listOf("upload", "persist", "trash"), events)
+    }
+
+    @Test fun `failed mirror replacement leaves previous snapshot intact`() = runBlocking {
+        var persisted = false
+        var trashed = false
+        val strategy = MirrorBackupStrategy(
+            uploadConversation = { Result.failure(IllegalStateException("failed")) },
+            trashMessage = { trashed = true; Result.success(Unit) },
+            persistSnapshot = { persisted = true },
+            accountId = "account-id",
+            accountEmail = "account@example.com"
+        )
+        assertTrue(strategy.execute(conversation(), email(), "changed", existingSnapshot(), {}).isFailure)
+        assertTrue(!persisted)
+        assertTrue(!trashed)
+    }
+
     private fun mirrorStrategy() =
         MirrorBackupStrategy(
             uploadConversation = { Result.success(uploadResult) },

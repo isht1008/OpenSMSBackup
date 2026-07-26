@@ -19,8 +19,7 @@ class GmailBackupWorkContractTest {
             requestId = UUID.randomUUID().toString(),
             createdAt = 123L,
             executionMode = BackupExecutionMode.MANUAL,
-            includeContactNames = true,
-            maximumConversations = 3
+            includeContactNames = true
         )
         val data = GmailBackupWorkContract.inputData(input)
 
@@ -87,6 +86,25 @@ class GmailBackupWorkContractTest {
             assertEquals(phase, restored.phase)
             assertTrue(restored.statusMessage.length <= 500)
         }
+    }
+
+    @Test fun `limited test completion metadata survives process recreation`() {
+        val completion = GmailBackupCompletion(
+            GmailBackupCompletionState.LIMITED_TEST_COMPLETED,
+            checked = 10, total = 10, uploaded = 8, unchanged = 2, failed = 0,
+            previousSnapshotsTrashed = 3,
+            totalMessages = 90, isLimitedTest = true,
+            sourceConversationTotal = 4_534, sourceMessageTotal = 40_000
+        )
+        val restored = requireNotNull(
+            GmailBackupWorkContract.readCompletion(GmailBackupWorkContract.outputData(completion))
+        )
+        assertTrue(restored.isLimitedTest)
+        assertEquals(3, restored.previousSnapshotsTrashed)
+        assertEquals(10, restored.total)
+        assertEquals(4_534, restored.sourceConversationTotal)
+        assertEquals(90, restored.totalMessages)
+        assertEquals(40_000, restored.sourceMessageTotal)
     }
 
     @Test fun `unique work names and tags are stable and profile scoped`() {

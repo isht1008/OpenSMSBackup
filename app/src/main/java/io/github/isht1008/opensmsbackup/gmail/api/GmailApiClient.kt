@@ -3,6 +3,7 @@ package io.github.isht1008.opensmsbackup.gmail.api
 import android.content.Context
 import com.google.api.services.gmail.Gmail
 import com.google.api.services.gmail.model.ListLabelsResponse
+import com.google.api.services.gmail.model.Profile
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.gmail.error.GmailRetryPolicy
 import kotlinx.coroutines.Dispatchers
@@ -58,5 +59,24 @@ class GmailApiClient(
         }
 
     }
+
+    /** Read-only connectivity check. It does not list or fetch mailbox messages. */
+    suspend fun getProfile(profile: AccountProfileEntity): Result<Profile> =
+        withContext(Dispatchers.IO) {
+            try {
+                Result.success(
+                    retryPolicy.execute(
+                        operationName = "get_profile",
+                        profileId = profile.profileId
+                    ) {
+                        createService(profile).users().getProfile("me").execute()
+                    }
+                )
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+        }
 
 }

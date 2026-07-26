@@ -28,8 +28,7 @@ data class GmailBackupWorkInput(
     val requestId: String,
     val createdAt: Long,
     val executionMode: BackupExecutionMode,
-    val includeContactNames: Boolean,
-    val maximumConversations: Int?
+    val includeContactNames: Boolean
 )
 
 data class GmailBackupWorkProgress(
@@ -62,7 +61,6 @@ object GmailBackupWorkContract {
     private const val CREATED_AT = "gmail.created_at"
     private const val EXECUTION_MODE = "gmail.execution_mode"
     private const val INCLUDE_CONTACT_NAMES = "gmail.include_contact_names"
-    private const val MAXIMUM_CONVERSATIONS = "gmail.maximum_conversations"
     private const val PHASE = "gmail.phase"
     private const val ACCOUNT_EMAIL = "gmail.account_email"
     private const val CHECKED = "gmail.checked"
@@ -70,6 +68,7 @@ object GmailBackupWorkContract {
     private const val UPLOADED = "gmail.uploaded"
     private const val UNCHANGED = "gmail.unchanged"
     private const val FAILED = "gmail.failed"
+    private const val PREVIOUS_SNAPSHOTS_TRASHED = "gmail.previous_snapshots_trashed"
     private const val RETRY_ATTEMPT = "gmail.retry_attempt"
     private const val RETRY_MAXIMUM = "gmail.retry_maximum"
     private const val STATUS_MESSAGE = "gmail.status_message"
@@ -78,6 +77,10 @@ object GmailBackupWorkContract {
     private const val REASON = "gmail.reason"
     private const val AUTHORIZATION_REQUIRED = "gmail.authorization_required"
     private const val SAFETY_LIMIT = "gmail.safety_limit"
+    private const val LIMITED_TEST = "gmail.limited_test"
+    private const val SOURCE_CONVERSATION_TOTAL = "gmail.source_conversation_total"
+    private const val TOTAL_MESSAGES = "gmail.total_messages"
+    private const val SOURCE_MESSAGE_TOTAL = "gmail.source_message_total"
 
     fun uniqueWorkName(profileId: String) = UNIQUE_WORK_PREFIX + profileId
     fun profileTag(profileId: String) = PROFILE_TAG_PREFIX + profileId
@@ -96,7 +99,6 @@ object GmailBackupWorkContract {
             .putLong(CREATED_AT, input.createdAt)
             .putString(EXECUTION_MODE, input.executionMode.name)
             .putBoolean(INCLUDE_CONTACT_NAMES, input.includeContactNames)
-            .putInt(MAXIMUM_CONVERSATIONS, input.maximumConversations ?: -1)
             .build()
 
     fun readInput(data: Data): GmailBackupWorkInput? {
@@ -112,8 +114,7 @@ object GmailBackupWorkContract {
             requestId = requestId,
             createdAt = createdAt,
             executionMode = executionMode,
-            includeContactNames = data.getBoolean(INCLUDE_CONTACT_NAMES, false),
-            maximumConversations = data.getInt(MAXIMUM_CONVERSATIONS, -1).takeIf { it > 0 }
+            includeContactNames = data.getBoolean(INCLUDE_CONTACT_NAMES, false)
         )
     }
 
@@ -163,9 +164,14 @@ object GmailBackupWorkContract {
             .putInt(UPLOADED, completion.uploaded)
             .putInt(UNCHANGED, completion.unchanged)
             .putInt(FAILED, completion.failed)
+            .putInt(PREVIOUS_SNAPSHOTS_TRASHED, completion.previousSnapshotsTrashed)
             .putString(REASON, completion.reason?.take(500))
             .putBoolean(AUTHORIZATION_REQUIRED, completion.failure?.reauthorizationRequired == true)
             .putBoolean(SAFETY_LIMIT, completion.stoppedAtSafetyLimit)
+            .putBoolean(LIMITED_TEST, completion.isLimitedTest)
+            .putInt(SOURCE_CONVERSATION_TOTAL, completion.sourceConversationTotal)
+            .putInt(TOTAL_MESSAGES, completion.totalMessages)
+            .putInt(SOURCE_MESSAGE_TOTAL, completion.sourceMessageTotal)
             .build()
 
     fun readCompletion(data: Data): GmailBackupCompletion? {
@@ -180,6 +186,7 @@ object GmailBackupWorkContract {
             uploaded = data.getInt(UPLOADED, 0),
             unchanged = data.getInt(UNCHANGED, 0),
             failed = data.getInt(FAILED, 0),
+            previousSnapshotsTrashed = data.getInt(PREVIOUS_SNAPSHOTS_TRASHED, 0),
             reason = data.getString(REASON),
             profileId = data.getString(PROFILE_ID),
             accountEmail = data.getString(ACCOUNT_EMAIL),
@@ -188,7 +195,11 @@ object GmailBackupWorkContract {
             } else {
                 null
             },
-            stoppedAtSafetyLimit = data.getBoolean(SAFETY_LIMIT, false)
+            stoppedAtSafetyLimit = data.getBoolean(SAFETY_LIMIT, false),
+            isLimitedTest = data.getBoolean(LIMITED_TEST, false),
+            sourceConversationTotal = data.getInt(SOURCE_CONVERSATION_TOTAL, data.getInt(TOTAL, 0)),
+            totalMessages = data.getInt(TOTAL_MESSAGES, 0),
+            sourceMessageTotal = data.getInt(SOURCE_MESSAGE_TOTAL, data.getInt(TOTAL_MESSAGES, 0))
         )
     }
 

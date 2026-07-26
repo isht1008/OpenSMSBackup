@@ -65,8 +65,7 @@ class GmailBackupWorkCoordinator internal constructor(
 
     suspend fun enqueueManual(
         profileId: String,
-        includeContactNames: Boolean,
-        maximumConversations: Int?
+        includeContactNames: Boolean
     ): GmailBackupEnqueueResult {
         gateway.activeGlobalId()?.let {
             return GmailBackupEnqueueResult.AlreadyRunning(it)
@@ -80,8 +79,7 @@ class GmailBackupWorkCoordinator internal constructor(
             requestId = UUID.randomUUID().toString(),
             createdAt = System.currentTimeMillis(),
             executionMode = BackupExecutionMode.MANUAL,
-            includeContactNames = includeContactNames,
-            maximumConversations = maximumConversations
+            includeContactNames = includeContactNames
         )
         val request = OneTimeWorkRequestBuilder<GmailBackupWorker>()
             .setInputData(GmailBackupWorkContract.inputData(input))

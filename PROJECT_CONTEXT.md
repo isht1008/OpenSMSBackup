@@ -13,7 +13,7 @@ OpenSMSBackup is an Android 12+ privacy-first SMS backup app. The current code r
 - Local format-v2 JSON export to `Documents/OpenSMSBackup` through MediaStore, plus a simple backup-history list.
 - Multiple Room-backed Google account profiles with selected profile ID in DataStore and profile-aware Gmail `gmail.modify` access.
 - Gmail format-v3 snapshot generation: one email per Android `threadId`, chronological sent/received content, HTML and plain text, custom headers, and restore JSON attachment.
-- Room database v5 with account profiles/settings, legacy backup and conversation-snapshot tables, and count-only verification history; explicit migrations exist.
+- Room database v6 with account profiles/settings, policy transition metadata, legacy backup and conversation-snapshot tables, and count-only verification history; explicit migrations exist.
 - Incremental Gmail comparison using a SHA-256 snapshot hash. Replacement is uploaded and persisted before the previous message is moved to Trash.
 - Manual Gmail backup executes as unique profile-bound WorkManager foreground work; WorkInfo restores progress across Activity/process recreation and both app/notification cancellation target the exact request.
 - Installation-scoped Device Profiles isolate mirror and append-only Gmail namespaces using device labels, V2 conversation identity, and device ownership headers without hardware identifiers or phone permissions.
@@ -22,15 +22,15 @@ OpenSMSBackup is an Android 12+ privacy-first SMS backup app. The current code r
 
 **Partially implemented**
 
-- Gmail backup is a full manual action. Execution is durable, but exact per-conversation resume after worker interruption and remote deduplication are absent.
-- Multiple accounts can be managed, selected, reauthorized, and logically disconnected. Backup mode is independently persisted per account; actual OAuth revocation remains absent.
+- Gmail backup execution is durable, but exact per-conversation resume and remote deduplication are absent. **Partially implemented / temporary test mode:** physical-device builds select the 10 local SMS conversations with the newest message activity, ordered by latest message timestamp descending and then thread ID descending. Archive and per-conversation Mirror use the same scope, omitted conversations are untouched, and limited runs do not advance full-backup completion time.
+- Multiple accounts can be managed, selected, reauthorized, logically disconnected, or explicitly revoked through Google Identity Services. Google credential sign-in and Gmail OAuth authorization are separate state transitions; revoked profiles remain authorization-required until `gmail.modify` authorization completes. Settings displays each profile's own policy, last backup, and verification health.
 - Gmail labels are created, but conversation uploads use only `SMS` and `SMS/Conversations`.
 - Local backup history and Gmail verification history are presented together in Backup Health; local files still use a separate schema and do not persist backup start/duration metadata.
 - Stable identity uses account email plus Android `threadId`; that ID is not portable across devices/reinstalls.
 
 **Planned**
 
-Multi-account profiles, Gmail index reconstruction, stable identity, full Backup Now, retry/resume, scheduled and incoming-SMS backups, Drive state/database export, archive/mirror policy, HTML/share/email export, large-conversation handling, encryption, and access revocation.
+Multi-account automation, Gmail index reconstruction, stable identity, full Backup Now, retry/resume, scheduled and incoming-SMS backups, Drive state/database export, archive/mirror policy, HTML/share/email export, large-conversation handling, and encryption.
 
 **Deferred**
 

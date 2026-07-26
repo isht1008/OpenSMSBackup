@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BackupAccountDao {
@@ -45,6 +46,9 @@ interface BackupAccountDao {
         """
     )
     suspend fun getAll(): List<BackupAccountEntity>
+
+    @Query("SELECT * FROM backup_accounts")
+    fun observeAll(): Flow<List<BackupAccountEntity>>
 
     @Query(
         """

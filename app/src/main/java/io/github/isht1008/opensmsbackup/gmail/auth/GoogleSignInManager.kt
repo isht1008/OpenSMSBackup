@@ -2,6 +2,7 @@ package io.github.isht1008.opensmsbackup.gmail.auth
 
 import android.content.Context
 import androidx.credentials.CredentialManager
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
@@ -78,5 +79,9 @@ class GoogleSignInManager(
                 Result.failure(e)
             }
         }
+    }
+
+    suspend fun clearCredentialState() {
+        credentialManager.clearCredentialState(ClearCredentialStateRequest())
     }
 }

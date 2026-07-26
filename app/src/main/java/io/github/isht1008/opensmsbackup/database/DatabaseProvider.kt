@@ -220,6 +220,17 @@ object DatabaseProvider {
         }
     }
 
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                "ALTER TABLE `account_settings` ADD COLUMN `previous_policy` TEXT DEFAULT NULL"
+            )
+            database.execSQL(
+                "ALTER TABLE `account_settings` ADD COLUMN `policy_changed_at` INTEGER DEFAULT NULL"
+            )
+        }
+    }
+
     @Volatile
     private var instance: BackupDatabase? = null
 
@@ -240,7 +251,8 @@ object DatabaseProvider {
                             MIGRATION_1_2,
                             MIGRATION_2_3,
                             MIGRATION_3_4,
-                            MIGRATION_4_5
+                            MIGRATION_4_5,
+                            MIGRATION_5_6
                         )
                         .build()
                         .also { database ->

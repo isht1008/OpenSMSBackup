@@ -40,6 +40,9 @@ interface AccountProfileDao {
     )
     fun observeProfiles(): Flow<List<AccountProfileEntity>>
 
+    @Query("SELECT * FROM account_settings")
+    fun observeSettings(): Flow<List<AccountSettingsEntity>>
+
     @Query(
         """
         SELECT *

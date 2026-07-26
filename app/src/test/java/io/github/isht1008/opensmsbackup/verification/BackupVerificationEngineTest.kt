@@ -79,6 +79,16 @@ class BackupVerificationEngineTest {
         assertEquals(BackupVerificationStatus.CANCELLED, cancelledEngine.verify(request(listOf(message(1)))).status)
     }
 
+    @Test fun `limited local scope never claims complete dataset verified`() = runBlocking {
+        val local = listOf(message(1))
+        val engine = DefaultBackupVerificationEngine(VerificationArchiveRepository {
+            Result.success(VerificationArchiveSnapshot(local, 1))
+        })
+        val result = engine.verify(request(local).copy(completeLocalScope = false))
+        assertEquals(BackupVerificationStatus.PARTIALLY_VERIFIED, result.status)
+        assertTrue(result.issues.any { it.type == BackupVerificationIssueType.SAFETY_LIMIT_REACHED })
+    }
+
     @Test fun `forty thousand message comparison remains linear and bounded`() = runBlocking {
         val count = 40_000
         val local = List(count) { index ->

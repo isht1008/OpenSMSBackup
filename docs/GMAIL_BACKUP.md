@@ -6,7 +6,11 @@
 
 Room v2 stores `(account_id, android_thread_id)`, snapshot hash, Gmail message/thread IDs, range, count, and backup time. Unchanged hashes are skipped. For changes, the new snapshot uploads first, Room is updated second, and the previous Gmail message is moved to Trash last. Trash failure is a warning and never rolls back the valid new snapshot.
 
-**Partially implemented:** The home-screen action runs a full manual backup durably as foreground WorkManager work, but exact checkpoint resume and recurring scheduling are absent. Existing per-message MIME/fingerprint/database code remains from the earlier design but is not the active manager path. Labels for inbox/sent/drafts/failed are created but unused by conversation upload.
+**Partially implemented:** The home-screen action runs durably as foreground WorkManager work, but exact checkpoint resume and recurring scheduling are absent. `GmailBackupTestConfig` temporarily limits the upload scope to the 10 local SMS conversations with the newest message activity. Selection sorts by each conversation's latest local message timestamp descending, then thread ID descending for deterministic ties. Set the maximum to `null` to restore full behavior.
+
+**Implemented:** Before manual Gmail backup work is enqueued, the app performs a read-only Gmail `users.getProfile("me")` connectivity check for the selected account. A failed check blocks the backup and surfaces the existing authorization/error flow. The preflight does not list or fetch messages and does not mutate Gmail.
+
+**Temporary test safety:** SMS reading and conversation construction still process the complete Android dataset. The recent-activity selector is applied once immediately before Gmail strategy execution. Progress and message totals use only the selected scope, while completion retains source totals and is classified `LIMITED_TEST_COMPLETED`. Limited runs do not update full-backup timestamps. Archive, Mirror, and verification receive the same 10-most-recent scope. Mirror performs replacement only for those explicitly supplied conversations; there is no global missing-conversation reconciliation, so omitted conversations are not inspected, uploaded, replaced, or moved to Trash. Archive remains append-only. Limited verification can return at most `PARTIALLY_VERIFIED`, never full-dataset `VERIFIED`.
 
 **Planned:** Full Backup Now, stable identity, per-account settings, retry/resume, large-conversation handling, Gmail index reconstruction, archive/mirror reconciliation, health reporting, and encryption where appropriate.
 
@@ -25,6 +29,8 @@ The root contains `formatVersion: 3`, `backupType`, account email, snapshot hash
 ## Sprint 2B reliability behavior
 
 **Implemented:** Gmail failures are classified as authorization, configuration, rate limit, network, server, client, local, or unknown failures. Classification retains the original exception internally plus available HTTP status, Google reason, retryability, abort, reauthorization, and bounded Retry-After information. Normal UI messages are concise and do not expose stack traces or message content.
+
+**Implemented:** Account sign-in and Gmail authorization are independent. Gmail service creation and worker preflight require a connected profile. Revoked profiles remain authorization-required until an account-specific Google Identity authorization result includes `gmail.modify`; an unresolved authorization `PendingIntent` is launched rather than treated as success. Google decides whether user-visible consent is necessary.
 
 Authorization failures such as HTTP 401 and missing Gmail permission stop immediately. The active profile is preserved and marked `AUTHORIZATION_REQUIRED`; temporary network, server, and throttling failures do not change its connected state. Ambiguous HTTP 403 responses stop conservatively, while explicit rate-limit reasons are treated as temporary.
 
@@ -62,7 +68,7 @@ On the primary device, verify background progress after minimizing, swiping rece
 
 **Implemented:** Archive discovery treats Room's Gmail message ID as a cache. It validates that message first, then falls back to a bounded `SMS/Conversations` label search and selects the newest valid format-v3 snapshot matching normalized conversation and account identity. Valid recovery repairs the Room cache. New snapshots include a deterministic `X-OpenSMSBackup-Conversation-Key`; older format-v3 snapshots remain discoverable through label-scoped attachment validation.
 
-**Implemented:** Home exposes the selected account's persisted mode. Archive saves immediately and is the default for newly created settings; Mirror requires explicit warning confirmation. Existing stored modes are retained.
+**Implemented:** Home exposes a selected-account management card with persisted policy, connection state, last backup, and verification health. Policy changes require a confirmation wizard, affect future backups only, and store the previous policy/change time locally. Archive is the default for newly created settings and Mirror is an advanced option. Existing stored modes are retained.
 
 **Partially implemented:** Full remote index reconstruction remains planned.
 

@@ -14,6 +14,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -23,13 +27,17 @@ import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkCoordinator
 import io.github.isht1008.opensmsbackup.ui.component.AccountProfileCard
-import io.github.isht1008.opensmsbackup.ui.component.DisconnectAccountDialog
+import io.github.isht1008.opensmsbackup.ui.component.GmailAccountExitDialog
 import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.SettingCard
 import io.github.isht1008.opensmsbackup.ui.component.TopBar
 import io.github.isht1008.opensmsbackup.viewmodel.SettingsViewModel
 import io.github.isht1008.opensmsbackup.viewmodel.SettingsViewModelFactory
 import io.github.isht1008.opensmsbackup.device.DeviceProfileStore
+import io.github.isht1008.opensmsbackup.account.data.AccountManagementRepository
+import io.github.isht1008.opensmsbackup.account.data.MultiAccountRepository
+import io.github.isht1008.opensmsbackup.ui.component.BackupPolicyWizard
+import io.github.isht1008.opensmsbackup.gmail.account.AndroidGmailAccountExitOperations
 
 @Composable
 fun SettingsScreen(
@@ -43,9 +51,28 @@ fun SettingsScreen(
                 GmailAccountManager(context),
                 GmailAccountCoordinator(context),
                 GmailBackupWorkCoordinator(context),
-                DeviceProfileStore.create(context)
+                DeviceProfileStore.create(context),
+                AccountManagementRepository.create(context),
+                MultiAccountRepository.create(context),
+                AndroidGmailAccountExitOperations(context)
             )
         )
+
+    val authorizationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            viewModel.completeAuthorization(result.data)
+        } else {
+            viewModel.cancelPendingAuthorization()
+        }
+    }
+    DisposableEffect(viewModel) {
+        viewModel.onAuthorizationConsentRequired = { pendingIntent ->
+            authorizationLauncher.launch(IntentSenderRequest.Builder(pendingIntent).build())
+        }
+        onDispose { viewModel.onAuthorizationConsentRequired = null }
+    }
 
     Scaffold(
         topBar = {
@@ -66,6 +93,86 @@ fun SettingsScreen(
                 ),
             verticalArrangement = Arrangement.Top
         ) {
+            Text(
+                text = "Backup Gmail Accounts",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+
+            if (viewModel.accountProfiles.isEmpty()) {
+                Text(
+                    text = "No Gmail accounts connected.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                viewModel.accountManagementItems.forEach { item ->
+                    val profile = item.profile
+                    AccountProfileCard(
+                        profile = profile,
+                        policy = item.policy,
+                        lastBackupTime = item.lastSuccessfulBackupAt,
+                        verification = item.verification,
+                        isSelected =
+                            viewModel.selectedProfileId ==
+                                    profile.profileId,
+                        isBusy =
+                            viewModel.isAddingAccount ||
+                                    viewModel.busyProfileId != null,
+                        onSelect = {
+                            viewModel.selectAccount(profile)
+                        },
+                        onAuthorize = {
+                            viewModel.reauthorizeAccount(profile)
+                        },
+                        onChangePolicy = {
+                            viewModel.openBackupPolicy(item)
+                        },
+                        onDisconnect = {
+                            viewModel.requestDisconnect(profile)
+                        },
+                        onRevoke = {
+                            viewModel.requestRevoke(profile)
+                        }
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            PrimaryButton(
+                text =
+                    if (viewModel.isAddingAccount) {
+                        "Adding account..."
+                    } else {
+                        "Add Account"
+                    },
+                onClick = viewModel::addAccount
+            )
+
+            viewModel.errorMessage?.let { error ->
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Spacer(Modifier.height(28.dp))
+
             Text(
                 text = "Device",
                 style = MaterialTheme.typography.titleLarge,
@@ -113,76 +220,6 @@ fun SettingsScreen(
                 viewModel.deviceSaveMessage?.let { Text(it) }
             }
 
-            Spacer(Modifier.height(28.dp))
-
-            Text(
-                text = "Backup Gmail Accounts",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-            if (viewModel.accountProfiles.isEmpty()) {
-                Text(
-                    text = "No Gmail accounts connected.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
-                viewModel.accountProfiles.forEach { profile ->
-                    AccountProfileCard(
-                        profile = profile,
-                        isSelected =
-                            viewModel.selectedProfileId ==
-                                    profile.profileId,
-                        isBusy =
-                            viewModel.isAddingAccount ||
-                                    viewModel.busyProfileId != null,
-                        onSelect = {
-                            viewModel.selectAccount(profile)
-                        },
-                        onAuthorize = {
-                            viewModel.reauthorizeAccount(profile)
-                        },
-                        onDisconnect = {
-                            viewModel.requestDisconnect(profile)
-                        }
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(8.dp)
-                    )
-                }
-            }
-
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-            PrimaryButton(
-                text =
-                    if (viewModel.isAddingAccount) {
-                        "Adding account..."
-                    } else {
-                        "Add Account"
-                    },
-                onClick = viewModel::addAccount
-            )
-
-            viewModel.errorMessage?.let { error ->
-                Spacer(
-                    modifier = Modifier.height(12.dp)
-                )
-
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-
             Spacer(
                 modifier = Modifier.height(20.dp)
             )
@@ -219,16 +256,18 @@ fun SettingsScreen(
         }
     }
 
-    viewModel.pendingDisconnectProfile
-        ?.let { profile ->
-            DisconnectAccountDialog(
-                profile = profile,
-                isLastUsableAccount =
-                    viewModel.isLastUsableDisconnect,
-                onConfirm =
-                    viewModel::confirmDisconnect,
-                onDismiss =
-                    viewModel::dismissDisconnect
-            )
-        }
+    GmailAccountExitDialog(
+        state = viewModel.gmailAccountExitState,
+        onConfirmationChanged = viewModel::updateRevokeConfirmation,
+        onConfirm = viewModel::confirmAccountExit,
+        onDismiss = viewModel::cancelAccountExit
+    )
+
+    BackupPolicyWizard(
+        state = viewModel.backupPolicyUiState,
+        backupActive = viewModel.busyProfileId != null,
+        onChoose = viewModel::chooseBackupPolicy,
+        onConfirm = viewModel::confirmBackupPolicy,
+        onCancel = viewModel::cancelBackupPolicy
+    )
 }

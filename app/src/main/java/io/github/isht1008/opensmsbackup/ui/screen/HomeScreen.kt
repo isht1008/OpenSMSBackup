@@ -17,11 +17,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -37,7 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.StatusCard
-import io.github.isht1008.opensmsbackup.ui.component.GmailBackupModeSection
+import io.github.isht1008.opensmsbackup.ui.component.GmailAccountManagementCard
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 import java.text.DateFormat
 import java.util.Date
@@ -100,8 +98,7 @@ fun HomeScreen(
                             ContextCompat.checkSelfPermission(
                                 context,
                                 Manifest.permission.POST_NOTIFICATIONS
-                            ) == PackageManager.PERMISSION_GRANTED,
-                    maxConversations = null
+                            ) == PackageManager.PERMISSION_GRANTED
                 )
             }
 
@@ -254,27 +251,6 @@ fun HomeScreen(
                 modifier = Modifier.height(16.dp)
             )
 
-            PrimaryButton(
-                text = "Backup History",
-                onClick = onBackupHistoryClick
-            )
-
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
-
-            PrimaryButton(
-                text = "Test Gmail API",
-                onClick = {
-                    if (!backupInProgress) {
-                        viewModel.testGmailApi(
-                            context
-                        )
-                    }
-                },
-                enabled = !backupInProgress
-            )
-
             if (viewModel.isGmailBackingUp) {
                 Spacer(
                     modifier = Modifier.height(16.dp)
@@ -299,27 +275,19 @@ fun HomeScreen(
                 modifier = Modifier.height(16.dp)
             )
 
-            GmailBackupModeSection(
-                state = viewModel.gmailBackupModeUiState,
-                backupActive = viewModel.isGmailBackingUp,
-                onModeSelected = viewModel::selectGmailBackupMode
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            PrimaryButton(
-                text =
-                    if (viewModel.isGmailBackingUp) {
-                        "Backing up to Gmail..."
-                    } else {
-                        "Back up to Gmail"
-                    },
-                onClick = {
+            GmailAccountManagementCard(
+                profile = viewModel.selectedGmailProfile,
+                policyState = viewModel.gmailBackupModeUiState,
+                lastBackupTime = viewModel.lastGmailBackupTime,
+                verification = viewModel.latestVerification,
+                gmailBackupActive = viewModel.isGmailBackingUp,
+                allBackupActionsBusy = backupInProgress,
+                onBackup = {
                     requestPermissionsAndRun(
                         PendingBackupAction.GMAIL
                     )
                 },
-                enabled = !backupInProgress
+                onHistory = onBackupHistoryClick
             )
 
             Spacer(
@@ -364,12 +332,17 @@ fun HomeScreen(
                 )
 
                 val gmailState = viewModel.gmailBackupUiState
-                if (
-                    viewModel.isGmailBackingUp &&
-                    gmailState.fraction != null
-                ) {
+                val verificationState = viewModel.verificationProgress
+                val verificationFraction = verificationState?.total
+                    ?.takeIf { it > 0 }
+                    ?.let { verificationState.processed.toFloat() / it.toFloat() }
+                if (viewModel.isGmailBackingUp && gmailState.fraction != null) {
                     LinearProgressIndicator(
                         progress = { gmailState.fraction }
+                    )
+                } else if (viewModel.isVerifying && verificationFraction != null) {
+                    LinearProgressIndicator(
+                        progress = { verificationFraction.coerceIn(0f, 1f) }
                     )
                 } else {
                     LinearProgressIndicator()
@@ -381,8 +354,8 @@ fun HomeScreen(
 
                 Text(
                     text =
-                        if (viewModel.isGmailBackingUp) {
-                            buildString {
+                        when {
+                            viewModel.isGmailBackingUp -> buildString {
                                 append("Gmail Backup")
                                 gmailState.accountEmail?.let {
                                     append("\nAccount: $it")
@@ -395,8 +368,17 @@ fun HomeScreen(
                                 }
                                 append("\nStatus: ${gmailState.phase}")
                             }
-                        } else {
-                            "Creating local backup..."
+                            viewModel.isVerifying -> buildString {
+                                append("Verifying Gmail backup...")
+                                verificationState?.let { progress ->
+                                    append("\nStage: ${progress.stage.name.replace('_', ' ')}")
+                                    append("\nProcessed: ${progress.processed}")
+                                    progress.total?.let { total ->
+                                        append(" / $total conversations/messages")
+                                    }
+                                }
+                            }
+                            else -> "Creating local backup..."
                         }
                 )
             }
@@ -435,25 +417,4 @@ fun HomeScreen(
         }
     }
 
-    if (viewModel.gmailBackupModeUiState.mirrorConfirmationPending) {
-        AlertDialog(
-            onDismissRequest = viewModel::cancelMirrorBackupMode,
-            title = { Text("Use Mirror mode?") },
-            text = {
-                Text(
-                    "Mirror keeps Gmail aligned with the latest SMS state. " +
-                        "It can replace or move older backup snapshots to Trash according to the existing mirror behavior."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = viewModel::confirmMirrorBackupMode,
-                    enabled = !viewModel.isGmailBackingUp
-                ) { Text("Use Mirror") }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::cancelMirrorBackupMode) { Text("Cancel") }
-            }
-        )
-    }
 }

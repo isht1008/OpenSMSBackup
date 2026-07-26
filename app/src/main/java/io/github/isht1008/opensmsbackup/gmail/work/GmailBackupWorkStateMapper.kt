@@ -24,7 +24,8 @@ object GmailBackupWorkStateMapper {
                 else -> GmailBackupUiStage.RUNNING
             }
             WorkInfo.State.SUCCEEDED -> when (completion?.state) {
-                GmailBackupCompletionState.COMPLETED -> GmailBackupUiStage.COMPLETED
+                GmailBackupCompletionState.COMPLETED,
+                GmailBackupCompletionState.LIMITED_TEST_COMPLETED -> GmailBackupUiStage.COMPLETED
                 GmailBackupCompletionState.CANCELLED -> GmailBackupUiStage.CANCELLED
                 GmailBackupCompletionState.ABORTED_FATAL,
                 GmailBackupCompletionState.ABORTED_REPEATED_FAILURES -> GmailBackupUiStage.ABORTED
