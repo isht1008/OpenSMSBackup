@@ -34,16 +34,18 @@ fun GmailAccountManagementCard(
     gmailBackupActive: Boolean,
     allBackupActionsBusy: Boolean,
     onBackup: () -> Unit,
-    onHistory: () -> Unit
+    onHistory: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
             Text("Gmail Account", style = MaterialTheme.typography.titleLarge)
             if (profile == null) {
                 Text(
-                    "No Gmail account selected.",
+                    "No Gmail account selected. To enable Gmail backup, go to Settings and add an account.",
                     modifier = Modifier.padding(vertical = 12.dp)
                 )
+                PrimaryButton("Open Settings", onOpenSettings)
                 return@Column
             }
 

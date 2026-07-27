@@ -202,15 +202,6 @@ class HomeViewModel(
         viewModelScope.launch {
 
             try {
-                val accountProfile =
-                    resolveSelectedProfile(
-                        context
-                    ) ?: return@launch
-
-                updateAccountStatus(
-                    accountProfile
-                )
-
                 val result =
                     withContext(Dispatchers.IO) {
                         BackupManager().createBackup(

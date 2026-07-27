@@ -16,7 +16,7 @@ import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 @Composable
 fun OpenSmsBackupNavHost(
     homeViewModel: HomeViewModel,
-    onBackupClick: () -> Unit
+    onBackupClick: (includeContactNames: Boolean) -> Unit
 ) {
 
     val navController = rememberNavController()

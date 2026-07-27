@@ -6,6 +6,61 @@ import org.junit.Test
 import java.io.File
 
 class BackupOnlyArchitectureTest {
+    @Test fun `local backup forwards current contact permission`() {
+        val homeSource = File(
+            "src/main/java/io/github/isht1008/opensmsbackup/ui/screen/HomeScreen.kt"
+        ).readText()
+        val activitySource = File(
+            "src/main/java/io/github/isht1008/opensmsbackup/MainActivity.kt"
+        ).readText()
+
+        assertTrue(
+            homeSource.contains(
+                "onBackupClick(hasContactsPermission())"
+            )
+        )
+        assertTrue(
+            activitySource.contains(
+                "includeContactNames = includeContactNames"
+            )
+        )
+        assertFalse(
+            activitySource.contains(
+                "includeContactNames = true"
+            )
+        )
+    }
+
+    @Test fun `SMS denial has feedback beside the local backup action`() {
+        val source = File(
+            "src/main/java/io/github/isht1008/opensmsbackup/ui/screen/HomeScreen.kt"
+        ).readText()
+
+        assertTrue(
+            source.contains(
+                "localBackupFeedback =\n" +
+                    "                    \"SMS permission is required to back up messages.\""
+            )
+        )
+        assertTrue(
+            source.contains(
+                "localActionFeedback?.let { feedback ->"
+            )
+        )
+    }
+
+    @Test fun `local backup does not resolve a Gmail profile`() {
+        val source = File(
+            "src/main/java/io/github/isht1008/opensmsbackup/viewmodel/HomeViewModel.kt"
+        ).readText()
+        val localBackupBody = source
+            .substringAfter("fun startBackup(")
+            .substringBefore("fun loadBackupHistory(")
+
+        assertFalse(localBackupBody.contains("resolveSelectedProfile"))
+        assertTrue(localBackupBody.contains("BackupManager().createBackup"))
+    }
+
     @Test fun `manifest and production sources contain no SMS role or provider insertion`() {
         val manifest = File("src/main/AndroidManifest.xml")
         val sources = File("src/main/java")

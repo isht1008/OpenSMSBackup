@@ -40,10 +40,10 @@ class MainActivity : ComponentActivity() {
             OpenSMSBackupTheme {
                 OpenSmsBackupNavHost(
                     homeViewModel = homeViewModel,
-                    onBackupClick = {
+                    onBackupClick = { includeContactNames ->
                         homeViewModel.startBackup(
                             context = this@MainActivity,
-                            includeContactNames = true
+                            includeContactNames = includeContactNames
                         )
                     }
                 )

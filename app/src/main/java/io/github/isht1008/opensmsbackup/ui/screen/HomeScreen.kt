@@ -49,7 +49,7 @@ private enum class PendingBackupAction {
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onBackupClick: () -> Unit,
+    onBackupClick: (includeContactNames: Boolean) -> Unit,
     onBackupHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -67,6 +67,9 @@ fun HomeScreen(
 
     var pendingBackupAction by remember {
         mutableStateOf<PendingBackupAction?>(null)
+    }
+    var localBackupFeedback by remember {
+        mutableStateOf<String?>(null)
     }
 
     fun hasSmsPermission(): Boolean {
@@ -86,7 +89,7 @@ fun HomeScreen(
     fun startPendingBackup() {
         when (pendingBackupAction) {
             PendingBackupAction.LOCAL -> {
-                onBackupClick()
+                onBackupClick(hasContactsPermission())
             }
 
             PendingBackupAction.GMAIL -> {
@@ -124,6 +127,8 @@ fun HomeScreen(
             if (!smsGranted) {
                 pendingBackupAction = null
 
+                localBackupFeedback =
+                    "SMS permission is required to back up messages."
                 viewModel.updateStatus(
                     "SMS permission is required to back up messages."
                 )
@@ -163,6 +168,9 @@ fun HomeScreen(
 
         pendingBackupAction = action
 
+        if (action == PendingBackupAction.LOCAL) {
+            localBackupFeedback = null
+        }
         val notificationPermissionNeeded =
             action != PendingBackupAction.LOCAL &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -247,6 +255,21 @@ fun HomeScreen(
                 enabled = !backupInProgress
             )
 
+            val localActionFeedback =
+                if (viewModel.isBackingUp) {
+                    viewModel.status
+                } else {
+                    localBackupFeedback
+                }
+
+            localActionFeedback?.let { feedback ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = feedback,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
             Spacer(
                 modifier = Modifier.height(16.dp)
             )
@@ -287,7 +310,8 @@ fun HomeScreen(
                         PendingBackupAction.GMAIL
                     )
                 },
-                onHistory = onBackupHistoryClick
+                onHistory = onBackupHistoryClick,
+                onOpenSettings = onSettingsClick
             )
 
             Spacer(
