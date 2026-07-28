@@ -14,6 +14,10 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -33,10 +37,54 @@ fun GmailAccountManagementCard(
     verification: BackupVerificationEntity?,
     gmailBackupActive: Boolean,
     allBackupActionsBusy: Boolean,
-    onBackup: () -> Unit,
+    onIncrementalBackup: () -> Unit,
+    onFullBackup: () -> Unit,
+    onRecentTestBackup: () -> Unit,
     onHistory: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
+    var showFullBackupConfirmation by remember(profile?.profileId) {
+        mutableStateOf(false)
+    }
+
+    if (showFullBackupConfirmation && profile != null) {
+        AlertDialog(
+            onDismissRequest = { showFullBackupConfirmation = false },
+            title = { Text("Start Full Archive Backup?") },
+            text = {
+                Column {
+                    AccountValue("Selected Account", profile.accountEmail)
+                    AccountValue("Backup Mode", "Archive")
+                    Text(
+                        "Every local SMS conversation and the complete Gmail Archive namespace " +
+                            "will be checked. Conversation and " +
+                            "message totals will be calculated once by the backup worker. " +
+                            "Full Archive backup remains experimental while large-device " +
+                            "performance is physically validated. Existing Archive snapshots " +
+                            "are indexed before uploads begin. This operation may take time " +
+                            "and use substantial network or mobile data.",
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showFullBackupConfirmation = false
+                        onFullBackup()
+                    }
+                ) {
+                    Text("Start Full Backup")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFullBackupConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
             Text("Gmail Account", style = MaterialTheme.typography.titleLarge)
@@ -60,9 +108,39 @@ fun GmailAccountManagementCard(
 
             Spacer(Modifier.padding(top = 4.dp))
             PrimaryButton(
-                if (gmailBackupActive) "Backing up to Gmail…" else "Back up to Gmail",
-                onBackup,
+                "Backup Now",
+                onIncrementalBackup,
                 enabled = !allBackupActionsBusy
+            )
+            Spacer(Modifier.padding(top = 4.dp))
+            PrimaryButton(
+                if (gmailBackupActive) "Backing up to Gmail…" else "Reconcile Full Backup",
+                {
+                    if (policyState.mode == GmailBackupMode.ARCHIVE_APPEND_ONLY) {
+                        showFullBackupConfirmation = true
+                    } else {
+                        onFullBackup()
+                    }
+                },
+                enabled = !allBackupActionsBusy
+            )
+            Text(
+                "Reconciliation checks every conversation and the complete Gmail archive. " +
+                    "It can take significantly longer.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Spacer(Modifier.padding(top = 4.dp))
+            PrimaryButton(
+                "Test Backup · Recent 10",
+                onRecentTestBackup,
+                enabled = !allBackupActionsBusy
+            )
+            Text(
+                "Includes only the 10 most recently active conversations. " +
+                    "Omitted conversations remain untouched.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp)
             )
             Spacer(Modifier.padding(top = 4.dp))
             PrimaryButton("Backup History", onHistory)

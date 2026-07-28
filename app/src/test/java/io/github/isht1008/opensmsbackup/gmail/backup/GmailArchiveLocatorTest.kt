@@ -15,6 +15,30 @@ class GmailArchiveLocatorTest {
         assertEquals(0, lookup.searches)
     }
 
+    @Test fun `valid cached Gmail message does not initialize lazy index`() = runBlocking {
+        val lookup = FakeLookup(mapOf("cached" to Result.success(document("cached", 10))))
+        var indexBuilds = 0
+        val lazy = LazyGmailArchiveIndex {
+            indexBuilds++
+            GmailArchiveIndex.build(
+                EmptyIndexSource,
+                "user@example.com",
+                "device-a",
+                "device-label"
+            )
+        }
+        val locator = GmailArchiveLocator(
+            lookup,
+            "user@example.com",
+            "device-a",
+            "device-label",
+            indexProvider = lazy::get
+        )
+
+        assertEquals("cached", locator.locate(expected, "cached").getOrThrow()?.messageId)
+        assertEquals(0, indexBuilds)
+    }
+
     @Test fun `cached 404 falls back to Gmail search`() = runBlocking {
         val lookup = FakeLookup(
             reads = mapOf(
@@ -192,5 +216,12 @@ class GmailArchiveLocatorTest {
             searches++
             return Result.success(candidates)
         }
+    }
+
+    private object EmptyIndexSource : GmailArchiveIndexSource {
+        override suspend fun listPage(deviceLabelId: String, pageToken: String?) =
+            GmailArchiveMessagePage(emptyList(), null)
+        override suspend fun readMetadataPage(messageIds: List<String>) =
+            emptyList<GmailArchiveMetadataReference>()
     }
 }

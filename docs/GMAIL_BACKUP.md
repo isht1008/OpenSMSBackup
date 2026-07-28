@@ -2,17 +2,43 @@
 
 ## Status
 
+**Implemented:** Migrated null checkpoints have a strict local bootstrap path. It applies only to incremental Archive rows with matching account/installation context, a cached Gmail ID, exact current render-versioned merged-hash equality, and successful Full coverage (snapshot backupTime at or before backup_accounts.last_backup_time). Incremental, Recent-10, failed, aborted, and cancelled runs do not advance this proof. Eligible rows are updated atomically through a partial Room update and count as locally unchanged plus legacy initialized locally.
+
+**Implemented:** Bootstrap refuses missing proof or IDs, hash/account/device/policy uncertainty, incomplete rows, and any rendered change. Deletion-only and equal-count delete-plus-add cases compare remotely once; Archive continues preserving deleted phone messages remotely. For 3,314 covered exact rows, the request budget is zero Gmail reads, metadata reads, searches, index builds, and uploads.
+
+**Implemented:** Routine Archive `Backup Now` uses immutable `INCREMENTAL` work. It reads and groups local SMS, bulk-loads all account snapshots in one Room query, computes per-conversation `localSourceHash` values, and skips checkpoint-identical conversations before any Gmail snapshot read. After initialization, an unchanged routine run performs no archive snapshot reads, searches, index build, or uploads after the existing profile preflight.
+
+**Implemented:** `Reconcile Full Backup` retains immutable `FULL` scope and performs the expensive complete remote reconciliation. It is presented separately in the UI. Legacy WorkManager input without a scope still decodes as `RECENT_TEST`; persisted explicit `FULL` work remains reconciliation work. All-conversation Mirror work remains blocked by the existing safety rule.
+
+**Implemented:** Room v7 separates the merged Gmail `snapshotHash` from the phone-side `localSourceHash`. Checkpoint v2 hashes canonically ordered raw inputs: membership, message ID, thread ID, address, output-relevant contact name, body, raw timestamp, raw type/direction, subscription ID, read state, and service center. Locale/time-zone-formatted dates are derived from the raw timestamp and excluded. Exact v1 matches are upgraded locally in one Room batch without Gmail access. The saved checkpoint also carries its installation Device Profile ID, so another Device Profile cannot reuse the local skip.
+
+**Implemented:** A changed or legacy-uninitialized Archive conversation first reads its saved Gmail message ID and validates account/device/conversation ownership. Missing, invalid, foreign, or unavailable cache state triggers the existing bounded recovery through a lazily built shared archive index. The index is built at most once per run and is not built when all routine conversations have valid matching checkpoints.
+
+**Implemented:** A checkpoint advances only after a successful local-identical outcome, successful Gmail comparison with no appended messages, or successful upload and successful Room persistence. It does not advance on authorization, lookup, parse, ownership, merge, upload, Room, or cancellation failure. Phone-side deletions remain in Gmail; deletion-only changes cause one no-op comparison and then skip Gmail on the next unchanged run.
+
+**Implemented:** An all-match incremental Archive run returns before Gmail label, snapshot, search, or index setup. Active work reports monotonic elapsed time and a phase-aware EWMA ETA. ETA remains `Calculating` until two completed-unit samples exist, resets between local/index/remote/final phases, never reports zero while work remains, and stops at terminal state. A 15-second scalar-only refresh keeps the foreground notification current during long Gmail requests.
+
+**Implemented:** Completion distinguishes local skips, remote comparisons with no update, successfully persisted Gmail insertions, failures, remaining work, scope/mode, duration, and index use. Safe aggregate diagnostics report checkpoint miss reasons and timings for cached reads, attachment downloads, parsing, merge, MIME generation, upload, Room persistence, retry delay, and actual throttle waits.
+
+**Partially implemented:** Room loss, reinstall, or a changed installation Device Profile removes or invalidates the local fast-path knowledge, so safe remote comparison/recovery is required again and can be slow. Exact per-conversation resume and durable run journals remain **Planned**.
+
 **Implemented:** The app reads all device SMS, groups them by Android `threadId`, orders messages chronologically, and builds one Gmail email per conversation. Each format-v3 email contains readable HTML bubbles, a plain-text fallback, custom `X-OpenSMSBackup-*` headers, and `opensms-conversation-<threadId>.json` with restore-oriented message fields. It ensures `SMS` and child labels and uploads with `SMS` plus `SMS/Conversations`.
 
 Room v2 stores `(account_id, android_thread_id)`, snapshot hash, Gmail message/thread IDs, range, count, and backup time. Unchanged hashes are skipped. For changes, the new snapshot uploads first, Room is updated second, and the previous Gmail message is moved to Trash last. Trash failure is a warning and never rolls back the valid new snapshot.
 
-**Partially implemented:** The home-screen action runs durably as foreground WorkManager work, but exact checkpoint resume and recurring scheduling are absent. `GmailBackupTestConfig` temporarily limits the upload scope to the 10 local SMS conversations with the newest message activity. Selection sorts by each conversation's latest local message timestamp descending, then thread ID descending for deterministic ties. Set the maximum to `null` to restore full behavior.
+**Implemented:** Archive accounts expose Full Backup Now. Immutable WorkManager input records `FULL`, selects every local conversation, reports progress against that count, and advances full-backup time only when no conversation failed and the run did not abort.
+
+**Partially implemented:** Full Archive now builds one bounded, run-scoped metadata index for the selected account/device label before uploads. It paginates at 500 messages, retains at most four newest V3/V2 candidates per identity and at most 100,000 identities, and performs no per-conversation Gmail search. Metadata reads use bounded concurrency and shared retry backoff. Full Archive remains experimental until physical scale validation passes.
+
+**Implemented:** `Test Backup · Recent 10` records `RECENT_TEST`. Selection orders latest message time descending and thread ID descending. It uses `LIMITED_TEST_COMPLETED`, never advances full-backup time, and leaves omitted conversations untouched.
+
+**Implemented:** Persisted work created before scope existed decodes as `RECENT_TEST`, preserving its original safety limit during an in-place upgrade. An invalid explicit scope fails input validation and cannot become a full run.
 
 **Implemented:** Before manual Gmail backup work is enqueued, the app performs a read-only Gmail `users.getProfile("me")` connectivity check for the selected account. A failed check blocks the backup and surfaces the existing authorization/error flow. The preflight does not list or fetch messages and does not mutate Gmail.
 
-**Temporary test safety:** SMS reading and conversation construction still process the complete Android dataset. The recent-activity selector is applied once immediately before Gmail strategy execution. Progress and message totals use only the selected scope, while completion retains source totals and is classified `LIMITED_TEST_COMPLETED`. Limited runs do not update full-backup timestamps. Archive, Mirror, and verification receive the same 10-most-recent scope. Mirror performs replacement only for those explicitly supplied conversations; there is no global missing-conversation reconciliation, so omitted conversations are not inspected, uploaded, replaced, or moved to Trash. Archive remains append-only. Limited verification can return at most `PARTIALLY_VERIFIED`, never full-dataset `VERIFIED`.
+**Partially implemented:** SMS reading and conversation construction still process the complete Android dataset. Recent-test Mirror executes only the explicitly selected conversations. No global missing-conversation reconciliation exists, so omitted conversations cannot be uploaded, replaced, or moved to Trash. Archive remains append-only. Limited verification can return at most `PARTIALLY_VERIFIED`, never full-dataset `VERIFIED`.
 
-**Planned:** Full Backup Now, stable identity, per-account settings, retry/resume, large-conversation handling, Gmail index reconstruction, archive/mirror reconciliation, health reporting, and encryption where appropriate.
+**Planned:** Full Mirror backup remains blocked pending deletion preview, thresholds, confirmation, and recovery safeguards. Stable identity, retry/resume, large-conversation handling, Gmail index reconstruction, archive/mirror reconciliation, and encryption remain planned.
 
 ## Current attachment shape
 
@@ -44,7 +70,7 @@ Sprint 2A cancellation remains distinct from failure. Cancellation bypasses clas
 
 ## Sprint 2C WorkManager execution
 
-**Implemented:** The selected profile ID is captured in a small immutable work input with a request UUID, creation time, `MANUAL`/future `SCHEDULED` execution mode, contact-name flag, and current safety limit. The worker reloads that exact profile and never resolves the later selected account. Unique names use `gmail-backup-profile-<profileId>`; tags distinguish all Gmail work, manual work, and profile ownership. The current UI conservatively permits one global active Gmail backup.
+**Implemented:** The selected profile ID is captured in a small immutable work input with a request UUID, creation time, `MANUAL`/future `SCHEDULED` execution mode, contact-name flag, and explicit `FULL` or `RECENT_TEST` scope. The worker reloads that exact profile and never resolves the later selected account. Unique names use `gmail-backup-profile-<profileId>`; tags distinguish all Gmail work, manual work, and profile ownership. The current UI conservatively permits one global active Gmail backup.
 
 `GmailBackupWorker` promotes itself to a `dataSync` foreground worker before lengthy processing when notifications are available. The low-importance `OpenSMSBackup – Gmail Backup` channel shows account, phase, conversation counts, result counts, progress, and an exact-work WorkManager Cancel action. Android 13+ notification permission is requested by the Home UI; denial is explained to the user, skips foreground notification initialization, and does not prevent or retry the Gmail backup.
 
@@ -70,7 +96,7 @@ On the primary device, verify background progress after minimizing, swiping rece
 
 **Implemented:** Home exposes a selected-account management card with persisted policy, connection state, last backup, and verification health. Policy changes require a confirmation wizard, affect future backups only, and store the previous policy/change time locally. Archive is the default for newly created settings and Mirror is an advanced option. Existing stored modes are retained.
 
-**Partially implemented:** Full remote index reconstruction remains planned.
+**Partially implemented:** Run-scoped Full Archive discovery is indexed. Durable index persistence and reconstruction across runs remain planned.
 
 ## Sprint 3C device namespaces
 

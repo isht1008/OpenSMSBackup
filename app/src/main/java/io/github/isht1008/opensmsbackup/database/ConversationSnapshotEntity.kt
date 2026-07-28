@@ -49,6 +49,21 @@ data class ConversationSnapshotEntity(
     @ColumnInfo(name = "snapshot_hash")
     val snapshotHash: String,
 
+    @ColumnInfo(name = "local_source_hash")
+    val localSourceHash: String? = null,
+
+    @ColumnInfo(name = "local_source_message_count")
+    val localSourceMessageCount: Int? = null,
+
+    @ColumnInfo(name = "local_source_last_message_date")
+    val localSourceLastMessageDate: Long? = null,
+
+    @ColumnInfo(name = "local_source_max_sms_id")
+    val localSourceMaxSmsId: Long? = null,
+
+    @ColumnInfo(name = "local_source_device_id")
+    val localSourceDeviceId: String? = null,
+
     @ColumnInfo(name = "gmail_message_id")
     val gmailMessageId: String,
 

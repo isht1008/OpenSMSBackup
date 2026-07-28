@@ -1,6 +1,5 @@
 package io.github.isht1008.opensmsbackup.gmail.backup
 
-import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupPhase
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkProgress
 import org.junit.Assert.assertEquals
@@ -12,7 +11,7 @@ import io.github.isht1008.opensmsbackup.sms.SmsMessage
 class GmailBackupConversationLimiterTest {
     @Test fun `twenty conversations produce exactly ten recent candidates`() {
         val source = (1L..20L).map { conversation(it, "address-$it", latestDate = it) }
-        val scope = GmailBackupConversationLimiter.applyConversations(source, 10)
+        val scope = GmailBackupConversationLimiter.applyConversations(source, GmailBackupScope.RECENT_TEST)
         assertEquals((20L downTo 11L).toList(), scope.conversations.map { it.threadId })
         assertEquals(20, scope.sourceConversationCount)
         assertTrue(scope.isLimitedTest)
@@ -21,21 +20,22 @@ class GmailBackupConversationLimiterTest {
 
     @Test fun `fewer than ten conversations include all available`() {
         val source = (1L..7L).map { conversation(it, "address-$it", latestDate = it) }
-        val scope = GmailBackupConversationLimiter.applyConversations(source, 10)
+        val scope = GmailBackupConversationLimiter.applyConversations(source, GmailBackupScope.RECENT_TEST)
         assertEquals((7L downTo 1L).toList(), scope.conversations.map { it.threadId })
         assertTrue(scope.isLimitedTest)
     }
 
-    @Test fun `null limit preserves normal full behavior`() {
+    @Test fun `full selects every conversation`() {
         val source = (1L..20L).map { conversation(it, "address-$it", latestDate = it) }
-        val scope = GmailBackupConversationLimiter.applyConversations(source, null)
+        val scope = GmailBackupConversationLimiter.applyConversations(source, GmailBackupScope.FULL)
         assertEquals((20L downTo 1L).toList(), scope.conversations.map { it.threadId })
         assertFalse(scope.isLimitedTest)
     }
 
     @Test fun `progress total uses limited candidates`() {
         val scope = GmailBackupConversationLimiter.applyConversations(
-            (1L..20L).map { conversation(it, "address-$it", latestDate = it) }, 10
+            (1L..20L).map { conversation(it, "address-$it", latestDate = it) },
+            GmailBackupScope.RECENT_TEST
         )
         val progress = GmailBackupWorkProgress(
             GmailBackupPhase.RUNNING, "profile", checked = 5,
@@ -56,17 +56,6 @@ class GmailBackupConversationLimiterTest {
         assertTrue(completion.state != GmailBackupCompletionState.COMPLETED)
         assertEquals(20, completion.sourceConversationTotal)
         assertEquals(100, completion.totalMessages)
-        assertFalse(
-            GmailBackupTestModePolicy.shouldAdvanceFullBackupMetadata(
-                isLimitedTest = true,
-                aborted = false
-            )
-        )
-    }
-
-    @Test fun `temporary test mode allows archive and mirror`() {
-        assertTrue(GmailBackupTestModePolicy.supports(GmailBackupMode.ARCHIVE_APPEND_ONLY))
-        assertTrue(GmailBackupTestModePolicy.supports(GmailBackupMode.MIRROR))
     }
 
     @Test fun `newest local activity is selected first regardless of input order`() {
@@ -75,13 +64,13 @@ class GmailBackupConversationLimiterTest {
             conversation(3, "c", latestDate = 300),
             conversation(2, "b", latestDate = 200)
         )
-        val scope = GmailBackupConversationLimiter.applyConversations(source, 10)
+        val scope = GmailBackupConversationLimiter.applyConversations(source, GmailBackupScope.RECENT_TEST)
         assertEquals(listOf(3L, 2L, 1L), scope.conversations.map { it.threadId })
     }
 
     @Test fun `only ten newest conversations are selected and older conversation is excluded`() {
         val source = (1L..12L).map { conversation(it, "address-$it", latestDate = it) }
-        val scope = GmailBackupConversationLimiter.applyConversations(source, 10)
+        val scope = GmailBackupConversationLimiter.applyConversations(source, GmailBackupScope.RECENT_TEST)
         assertEquals((12L downTo 3L).toList(), scope.conversations.map { it.threadId })
         assertFalse(scope.conversations.any { it.threadId == 2L })
     }
@@ -93,7 +82,7 @@ class GmailBackupConversationLimiterTest {
         )
         assertEquals(
             listOf(9L, 4L),
-            GmailBackupConversationLimiter.applyConversations(source, 10)
+            GmailBackupConversationLimiter.applyConversations(source, GmailBackupScope.RECENT_TEST)
                 .conversations.map { it.threadId }
         )
     }
@@ -104,15 +93,16 @@ class GmailBackupConversationLimiterTest {
         )
         val afterDeletion = beforeDeletion.copy(messages = beforeDeletion.messages.dropLast(1))
         val other = conversation(2, "b", latestDate = 200)
-        assertEquals(1L, GmailBackupConversationLimiter.applyConversations(listOf(other, beforeDeletion), 10).conversations.first().threadId)
-        assertEquals(2L, GmailBackupConversationLimiter.applyConversations(listOf(other, afterDeletion), 10).conversations.first().threadId)
+        assertEquals(1L, GmailBackupConversationLimiter.applyConversations(listOf(other, beforeDeletion), GmailBackupScope.RECENT_TEST).conversations.first().threadId)
+        assertEquals(2L, GmailBackupConversationLimiter.applyConversations(listOf(other, afterDeletion), GmailBackupScope.RECENT_TEST).conversations.first().threadId)
     }
 
     @Test fun `archive and mirror receive the same recent scope`() {
         val source = (1L..12L).map { conversation(it, "address-$it", latestDate = it) }
-        val archiveScope = GmailBackupConversationLimiter.applyConversations(source, 10).conversations
-        val mirrorScope = GmailBackupConversationLimiter.applyConversations(source, 10).conversations
+        val archiveScope = GmailBackupConversationLimiter.applyConversations(source, GmailBackupScope.RECENT_TEST).conversations
+        val mirrorScope = GmailBackupConversationLimiter.applyConversations(source, GmailBackupScope.RECENT_TEST).conversations
         assertEquals(archiveScope, mirrorScope)
+        assertFalse(archiveScope.any { it.threadId == 1L })
     }
 
     @Test fun `changed message count changes snapshot hash`() {

@@ -16,6 +16,51 @@ class BackupDatabaseMigrationTest {
         BackupDatabase::class.java
     )
 
+    @Test fun migration6To7PreservesSnapshotAndInitializesLocalCheckpointAsNull() {
+        val name = "migration-6-7"
+        helper.createDatabase(name, 6).apply {
+            execSQL(
+                """
+                INSERT INTO conversation_snapshots (
+                    account_id, account_email, android_thread_id, address,
+                    contact_name, message_count, snapshot_hash, gmail_message_id,
+                    gmail_thread_id, first_message_date, last_message_date, backup_time
+                ) VALUES (
+                    'account-a', 'user@example.com', 7, 'address', NULL, 2,
+                    'merged-hash', 'gmail-id', 'gmail-thread', 100, 200, 300
+                )
+                """
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            name,
+            7,
+            true,
+            DatabaseProvider.MIGRATION_6_7
+        ).use { database ->
+            database.query(
+                """
+                SELECT snapshot_hash, gmail_message_id, local_source_hash,
+                    local_source_message_count, local_source_last_message_date,
+                    local_source_max_sms_id, local_source_device_id
+                FROM conversation_snapshots
+                WHERE account_id = 'account-a' AND android_thread_id = 7
+                """
+            ).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("merged-hash", cursor.getString(0))
+                assertEquals("gmail-id", cursor.getString(1))
+                assertEquals(true, cursor.isNull(2))
+                assertEquals(true, cursor.isNull(3))
+                assertEquals(true, cursor.isNull(4))
+                assertEquals(true, cursor.isNull(5))
+                assertEquals(true, cursor.isNull(6))
+            }
+        }
+    }
+
     @Test fun migration3To4PreservesProfilesAndDefaultsModeToMirror() {
         helper.createDatabase(DATABASE_NAME, 3).apply {
             execSQL(

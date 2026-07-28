@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 import androidx.work.WorkManager
 import java.util.UUID
+import io.github.isht1008.opensmsbackup.ui.screen.maskGmailAccount
 
 class GmailBackupNotificationFactory(
     private val context: Context
@@ -33,18 +34,26 @@ class GmailBackupNotificationFactory(
     ): android.app.Notification {
         val percent = progress.fraction?.let { (it * 100).toInt().coerceIn(0, 100) }
         val details = buildString {
+            append("Elapsed ${formatDuration(progress.elapsedMillis)}")
+            append(
+                " | ETA " +
+                    (progress.approximateEtaSeconds?.let { formatDuration(it * 1_000L) }
+                        ?: "Calculating")
+            )
+            append(" | ")
             append(progress.statusMessage)
             if (progress.total > 0) {
                 append(" · ${progress.checked}/${progress.total}")
             }
             append(" · Uploaded ${progress.uploaded}")
-            append(" · Unchanged ${progress.unchanged}")
+            append(" · Local ${progress.locallyUnchanged}")
+            append(" · Remote ${progress.remotelyCompared}")
             append(" · Failed ${progress.failed}")
         }
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setContentTitle("OpenSMSBackup Gmail Backup")
-            .setContentText(progress.accountEmail ?: "Preparing backup")
+            .setContentText(maskGmailAccount(progress.accountEmail) ?: "Preparing backup")
             .setStyle(NotificationCompat.BigTextStyle().bigText(details))
             .setOnlyAlertOnce(true)
             .setOngoing(true)
@@ -72,6 +81,15 @@ class GmailBackupNotificationFactory(
 
     private fun notificationId(workId: UUID): Int =
         NOTIFICATION_ID_BASE + (workId.hashCode() and 0x0FFF)
+
+    private fun formatDuration(millis: Long): String {
+        val seconds = (millis / 1_000L).coerceAtLeast(0L)
+        return when {
+            seconds < 60L -> "${seconds}s"
+            seconds < 3_600L -> "${seconds / 60L}m ${seconds % 60L}s"
+            else -> "${seconds / 3_600L}h ${(seconds % 3_600L) / 60L}m"
+        }
+    }
 
     companion object {
         const val CHANNEL_ID = "gmail_backup_progress"

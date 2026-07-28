@@ -14,6 +14,7 @@ import io.github.isht1008.opensmsbackup.backup.BackupManager
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.account.data.GmailBackupModeController
 import io.github.isht1008.opensmsbackup.account.data.GmailBackupModeUiState
+import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
 import io.github.isht1008.opensmsbackup.account.data.MultiAccountRepository
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountCoordinator
 import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
@@ -22,6 +23,8 @@ import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
 import io.github.isht1008.opensmsbackup.gmail.api.GmailConnectivityPreflight
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupCompletion
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupCompletionState
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupRunPlanner
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupScope
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupEnqueueResult
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupPhase
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupUiStage
@@ -29,6 +32,7 @@ import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupUiState
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkContract
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkCoordinator
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkStateMapper
+import io.github.isht1008.opensmsbackup.ui.screen.maskGmailAccount
 import androidx.work.WorkInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -376,10 +380,25 @@ class HomeViewModel(
     fun backupSmsToGmail(
         context: Context,
         includeContactNames: Boolean,
+        backupScope: GmailBackupScope,
         notificationsEnabled: Boolean = true
     ) {
         if (gmailBackupUiState.isActive || isBackingUp) {
             updateStatus("A Gmail backup is already running.")
+            return
+        }
+        val backupMode = gmailBackupModeUiState.mode
+        if (backupMode == null) {
+            updateStatus(
+                "Unable to confirm the selected Gmail backup mode. No backup was started."
+            )
+            return
+        }
+        if (
+            backupScope != GmailBackupScope.RECENT_TEST &&
+            backupMode == GmailBackupMode.MIRROR
+        ) {
+            updateStatus(GmailBackupRunPlanner.FULL_MIRROR_BLOCK_REASON)
             return
         }
         gmailBackupUiState = GmailBackupUiState(
@@ -407,7 +426,9 @@ class HomeViewModel(
             updateStatus("Gmail API connection confirmed. Starting backup…")
             when (val result = gmailWorkCoordinator.enqueueManual(
                 profileId = profile.profileId,
-                includeContactNames = includeContactNames
+                includeContactNames = includeContactNames,
+                backupScope = backupScope,
+                backupMode = backupMode
             )) {
                 is GmailBackupEnqueueResult.Enqueued -> {
                     gmailBackupUiState = gmailBackupUiState.copy(
@@ -417,7 +438,7 @@ class HomeViewModel(
                     )
                     updateStatus(
                         if (notificationsEnabled) {
-                            "Gmail backup queued for ${profile.accountEmail}."
+                            "Gmail backup queued for ${maskGmailAccount(profile.accountEmail)}."
                         } else {
                             "Gmail backup queued. Notifications are disabled, so progress won't appear in the notification drawer."
                         }
@@ -432,6 +453,11 @@ class HomeViewModel(
                         )
                         updateStatus("A Gmail backup is already running.")
                     }
+                is GmailBackupEnqueueResult.Blocked -> {
+                    gmailBackupUiState = GmailBackupUiState()
+                    isGmailBackingUp = false
+                    updateStatus(result.reason)
+                }
             }
         }
     }
@@ -451,9 +477,12 @@ class HomeViewModel(
     private fun observeGmailBackupWork() {
         viewModelScope.launch {
             gmailWorkCoordinator.observeAll().collectLatest { workInfos ->
-                val active = workInfos.firstOrNull {
+                val active = workInfos.filter {
                     GmailBackupWorkContract.isActive(it.state)
-                }
+                }.maxWithOrNull(
+                    compareBy<WorkInfo> { GmailBackupWorkContract.createdAt(it.tags) }
+                        .thenBy { it.id.toString() }
+                )
                 val terminal = workInfos.filter {
                     it.state.isFinished &&
                         (GmailBackupWorkContract.readCompletion(it.outputData) != null ||
@@ -494,14 +523,36 @@ class HomeViewModel(
     private fun buildGmailWorkStatus(state: GmailBackupUiState): String =
         buildString {
             append(state.phase)
-            state.accountEmail?.let { append("\n\nAccount\n$it") }
+            state.accountEmail?.let { append("\n\nAccount\n" + maskGmailAccount(it)) }
             if (state.total > 0) {
                 append("\n\nChecked\n${String.format("%,d", state.checked)} / ${String.format("%,d", state.total)}")
                 append("\n\nUploaded\n${String.format("%,d", state.uploaded)}")
-                append("\n\nUnchanged\n${String.format("%,d", state.unchanged)}")
+                append("\n\nLocally unchanged\n${String.format("%,d", state.locallyUnchanged)}")
+                if (state.legacyLocallyInitialized > 0) {
+                    append("\n\nLegacy initialized locally\n${String.format("%,d", state.legacyLocallyInitialized)}")
+                }
+                append("\n\nChecked remotely\n${String.format("%,d", state.remotelyCompared)}")
+                append("\n\nRemote check - no update\n${String.format("%,d", state.remotelyUnchanged)}")
+                append("\n\nRecoveries\n${String.format("%,d", state.remoteRecoveries)}")
                 append("\n\nFailed\n${String.format("%,d", state.failed)}")
+                append("\n\nRemaining\n${String.format("%,d", state.remaining)}")
             }
+            append("\n\nTime elapsed\n${formatGmailDuration(state.elapsedMillis)}")
+            append(
+                "\n\nEstimated time remaining\n" +
+                    (state.approximateEtaSeconds?.let { formatGmailDuration(it * 1_000L) }
+                        ?: if (state.isActive) "Calculating" else "Stopped")
+            )
         }
+
+    private fun formatGmailDuration(millis: Long): String {
+        val seconds = (millis / 1_000L).coerceAtLeast(0L)
+        return when {
+            seconds < 60L -> "${seconds}s"
+            seconds < 3_600L -> "${seconds / 60L}m ${seconds % 60L}s"
+            else -> "${seconds / 3_600L}h ${(seconds % 3_600L) / 60L}m"
+        }
+    }
 
     private fun handleGmailError(
         error: Throwable,

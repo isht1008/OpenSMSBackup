@@ -37,7 +37,10 @@ class GmailArchiveLocator(
     private val accountEmail: String,
     private val deviceId: String,
     private val deviceLabelId: String,
-    private val defaultRegion: String = "US"
+    private val defaultRegion: String = "US",
+    private val index: GmailArchiveIndex? = null,
+    private val indexProvider: (suspend () -> GmailArchiveIndex)? = null,
+    private val onRemoteRecovery: suspend () -> Unit = {}
 ) {
     suspend fun locate(
         conversation: SmsConversationSnapshot,
@@ -66,20 +69,28 @@ class GmailArchiveLocator(
             }
         }
 
-        val v3Candidates = lookup.search(expectedV3Key, deviceLabelId).getOrElse {
-            return Result.failure(it)
-        }
-        val v2Candidates = lookup.search(expectedV2Key, deviceLabelId).getOrElse {
-            return Result.failure(it)
+        if (index == null && indexProvider != null) onRemoteRecovery()
+        val recoveryIndex = index ?: indexProvider?.invoke()
+        val candidates = if (recoveryIndex != null) {
+            recoveryIndex.candidates(expectedV3Key, expectedV2Key)
+                .map { GmailArchiveCandidate(it.messageId, it.threadId) }
+        } else {
+            val v3 = lookup.search(expectedV3Key, deviceLabelId).getOrElse {
+                return Result.failure(it)
+            }
+            val v2 = lookup.search(expectedV2Key, deviceLabelId).getOrElse {
+                return Result.failure(it)
+            }
+            (v3 + v2).distinctBy { it.messageId }
         }
         var newest: GmailArchiveDocument? = null
-
-        (v3Candidates + v2Candidates).distinctBy { it.messageId }.forEach { candidate ->
+        for (candidate in candidates) {
             val result = lookup.read(candidate.messageId)
             val document = result.getOrNull()
             if (document != null && isValid(
                     document, conversation, expectedV3Key, expectedV2Key, allowLegacy = false
                 )) {
+                if (recoveryIndex != null) return Result.success(document)
                 if (newest == null || document.internalDate > requireNotNull(newest).internalDate) {
                     newest = document
                 }

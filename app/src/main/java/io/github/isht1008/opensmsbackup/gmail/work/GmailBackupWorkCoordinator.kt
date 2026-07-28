@@ -7,6 +7,9 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupRunPlanner
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import java.util.UUID
@@ -14,6 +17,7 @@ import java.util.UUID
 sealed interface GmailBackupEnqueueResult {
     data class Enqueued(val workId: UUID) : GmailBackupEnqueueResult
     data class AlreadyRunning(val workId: UUID) : GmailBackupEnqueueResult
+    data class Blocked(val reason: String) : GmailBackupEnqueueResult
 }
 
 internal interface GmailBackupWorkGateway {
@@ -65,8 +69,19 @@ class GmailBackupWorkCoordinator internal constructor(
 
     suspend fun enqueueManual(
         profileId: String,
-        includeContactNames: Boolean
+        includeContactNames: Boolean,
+        backupScope: GmailBackupScope,
+        backupMode: GmailBackupMode
     ): GmailBackupEnqueueResult {
+        if (
+            backupScope != GmailBackupScope.RECENT_TEST &&
+            backupMode == GmailBackupMode.MIRROR
+        ) {
+            return GmailBackupEnqueueResult.Blocked(
+                GmailBackupRunPlanner.FULL_MIRROR_BLOCK_REASON
+            )
+        }
+
         gateway.activeGlobalId()?.let {
             return GmailBackupEnqueueResult.AlreadyRunning(it)
         }
@@ -79,7 +94,8 @@ class GmailBackupWorkCoordinator internal constructor(
             requestId = UUID.randomUUID().toString(),
             createdAt = System.currentTimeMillis(),
             executionMode = BackupExecutionMode.MANUAL,
-            includeContactNames = includeContactNames
+            includeContactNames = includeContactNames,
+            backupScope = backupScope
         )
         val request = OneTimeWorkRequestBuilder<GmailBackupWorker>()
             .setInputData(GmailBackupWorkContract.inputData(input))

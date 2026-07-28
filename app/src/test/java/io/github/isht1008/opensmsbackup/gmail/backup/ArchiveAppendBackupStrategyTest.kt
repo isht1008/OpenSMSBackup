@@ -1,14 +1,17 @@
 package io.github.isht1008.opensmsbackup.gmail.backup
 
 import io.github.isht1008.opensmsbackup.database.ConversationSnapshotEntity
+import io.github.isht1008.opensmsbackup.device.DeviceProfile
 import io.github.isht1008.opensmsbackup.gmail.mime.ConversationMimeMessageBuilder
 import io.github.isht1008.opensmsbackup.gmail.model.SmsEmail
 import io.github.isht1008.opensmsbackup.gmail.upload.GmailUploadResult
 import io.github.isht1008.opensmsbackup.sms.SmsMessage
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.charset.StandardCharsets
 
@@ -24,7 +27,10 @@ class ArchiveAppendBackupStrategyTest {
             onPersist = { persisted = it }
         )
 
-        strategy.execute(phone, placeholderEmail(), "phone-hash", existingSnapshot(), {})
+        strategy.execute(
+            phone, placeholderEmail(), "phone-hash", existingSnapshot(), {},
+            LocalConversationSourceHashGenerator.generate(phone)
+        )
             .getOrThrow()
 
         val attachment = requireNotNull(uploadedEmail).attachments.single()
@@ -34,21 +40,45 @@ class ArchiveAppendBackupStrategyTest {
         assertEquals(listOf("archived", "new"), merged.messages.map { it.body })
         assertEquals(2, persisted?.messageCount)
         assertEquals("new-message", persisted?.gmailMessageId)
+        assertEquals(
+            LocalConversationSourceHashGenerator.generate(phone),
+            persisted?.localSourceHash
+        )
     }
 
     @Test fun `archive with no new phone messages does not upload`() = runBlocking {
-        val archived = conversation(message(1, 100, "keep"))
-        val phone = conversation(message(99, 100, "keep"))
+        val archived = conversation(
+            message(1, 100, "deleted"),
+            message(2, 200, "keep")
+        )
+        val phone = conversation(message(2, 200, "keep"))
         var uploads = 0
-        val strategy = strategy(archived, onUpload = { uploads++ })
+        var persisted: ConversationSnapshotEntity? = null
+        val strategy = strategy(
+            archived,
+            onUpload = { uploads++ },
+            onPersist = { persisted = it }
+        )
 
         val result = strategy.execute(
-            phone, placeholderEmail(), "phone-hash", existingSnapshot(), {}
+            phone, placeholderEmail(), "phone-hash", existingSnapshot(), {},
+            LocalConversationSourceHashGenerator.generate(phone)
         ).getOrThrow()
 
         assertEquals(0, uploads)
         assertFalse(result.wasUploaded)
         assertEquals("old-message", result.messageId)
+        assertEquals(
+            LocalConversationSourceHashGenerator.generate(phone),
+            persisted?.localSourceHash
+        )
+        val nextRun = ArchiveLocalCheckpointClassifier.classify(
+            listOf(phone),
+            mapOf(phone.threadId to requireNotNull(persisted)),
+            "account-id",
+            DEVICE_ID
+        )
+        assertEquals(1, nextRun.locallyUnchanged.size)
     }
 
     @Test fun `valid recovered archive updates stale Room cache without uploading`() = runBlocking {
@@ -88,6 +118,118 @@ class ArchiveAppendBackupStrategyTest {
         assertEquals("recovered-thread", persisted?.gmailThreadId)
     }
 
+    @Test fun `failed upload does not advance local source checkpoint`() = runBlocking {
+        val archived = conversation(message(1, 100, "archived"))
+        val phone = conversation(message(2, 200, "new"))
+        val old = existingSnapshot().copy(localSourceHash = "old-local")
+        var persisted: ConversationSnapshotEntity? = null
+        val strategy = ArchiveAppendBackupStrategy(
+            locateArchive = { _, _ ->
+                Result.success(
+                    GmailArchiveDocument(
+                        "old-message", "old-thread", 100,
+                        "user@example.com", null, archived
+                    )
+                )
+            },
+            uploadConversation = { Result.failure(IllegalStateException("upload failed")) },
+            persistSnapshot = { persisted = it },
+            accountId = "account-id",
+            accountEmail = "user@example.com"
+        )
+
+        val result = strategy.execute(
+            phone,
+            placeholderEmail(),
+            "phone-hash",
+            old,
+            {},
+            LocalConversationSourceHashGenerator.generate(phone)
+        )
+
+        assertEquals(true, result.isFailure)
+        assertEquals(null, persisted)
+    }
+
+    @Test fun `changed archive uploads before persisting merged checkpoint`() = runBlocking {
+        val events = mutableListOf<String>()
+        val archived = conversation(message(1, 100, "archived"))
+        val phone = conversation(message(2, 200, "new"))
+        val strategy = ArchiveAppendBackupStrategy(
+            locateArchive = { _, _ ->
+                Result.success(
+                    GmailArchiveDocument(
+                        "old-message", "old-thread", 100,
+                        "user@example.com", null, archived
+                    )
+                )
+            },
+            uploadConversation = {
+                events += "upload"
+                Result.success(GmailUploadResult("new-message", "new-thread", emptyList()))
+            },
+            persistSnapshot = { events += "persist" },
+            accountId = "account-id",
+            accountEmail = "user@example.com"
+        )
+
+        strategy.execute(
+            phone, placeholderEmail(), "phone-hash", existingSnapshot(), {},
+            LocalConversationSourceHashGenerator.generate(phone)
+        ).getOrThrow()
+
+        assertEquals(listOf("upload", "persist"), events)
+    }
+
+    @Test fun `Room failure after upload never records a completed checkpoint`() = runBlocking {
+        val events = mutableListOf<String>()
+        val phone = conversation(message(2, 200, "new"))
+        val strategy = ArchiveAppendBackupStrategy(
+            locateArchive = { _, _ -> Result.success(null) },
+            uploadConversation = {
+                events += "upload"
+                Result.success(GmailUploadResult("new-message", "new-thread", emptyList()))
+            },
+            persistSnapshot = {
+                events += "persist-failed"
+                error("Room failed")
+            },
+            accountId = "account-id",
+            accountEmail = "user@example.com"
+        )
+
+        val failure = runCatching {
+                strategy.execute(
+                    phone, placeholderEmail(), "phone-hash", null, {},
+                    LocalConversationSourceHashGenerator.generate(phone)
+                )
+            }.exceptionOrNull()
+        assertTrue(failure is SnapshotPersistenceAfterUploadException)
+        assertEquals(listOf("upload", "persist-failed"), events)
+    }
+
+    @Test fun `cancellation during upload does not persist checkpoint`() = runBlocking {
+        var persisted = false
+        val phone = conversation(message(2, 200, "new"))
+        val strategy = ArchiveAppendBackupStrategy(
+            locateArchive = { _, _ -> Result.success(null) },
+            uploadConversation = { throw CancellationException("cancelled") },
+            persistSnapshot = { persisted = true },
+            accountId = "account-id",
+            accountEmail = "user@example.com"
+        )
+
+        assertTrue(
+            runCatching {
+                strategy.execute(
+                    phone, placeholderEmail(), "phone-hash", null, {},
+                    LocalConversationSourceHashGenerator.generate(phone)
+                )
+            }.exceptionOrNull() is CancellationException
+        )
+        assertEquals(false, persisted)
+    }
+
     private fun strategy(
         archived: SmsConversationSnapshot,
         onUpload: (SmsEmail) -> Unit = {},
@@ -111,7 +253,8 @@ class ArchiveAppendBackupStrategyTest {
         },
         persistSnapshot = { onPersist(it) },
         accountId = "account-id",
-        accountEmail = "user@example.com"
+        accountEmail = "user@example.com",
+        deviceProfile = deviceProfile()
     )
 
     private fun conversation(vararg messages: SmsMessage) =
@@ -136,4 +279,21 @@ class ArchiveAppendBackupStrategyTest {
     private fun placeholderEmail() = ConversationMimeMessageBuilder().build(
         conversation(), "user@example.com", "hash"
     )
+
+    private fun deviceProfile() = DeviceProfile(
+        deviceId = DEVICE_ID,
+        manufacturer = "manufacturer",
+        model = "model",
+        marketingName = null,
+        androidVersion = "test",
+        primaryPhoneNumber = null,
+        secondaryPhoneNumber = null,
+        displayName = "Test device",
+        createdAt = 1,
+        updatedAt = 1
+    )
+
+    private companion object {
+        const val DEVICE_ID = "device-a"
+    }
 }

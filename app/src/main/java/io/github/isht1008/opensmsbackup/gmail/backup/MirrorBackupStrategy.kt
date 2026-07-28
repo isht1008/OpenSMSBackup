@@ -36,16 +36,20 @@ class MirrorBackupStrategy(
 
     override suspend fun execute(
         conversation: SmsConversationSnapshot,
-        email: SmsEmail,
+        email: SmsEmail?,
         snapshotHash: String,
         existingSnapshot: ConversationSnapshotEntity?,
-        onPreviousSnapshotTrashFailure: suspend (Throwable) -> Unit
+        onPreviousSnapshotTrashFailure: suspend (Throwable) -> Unit,
+        localSourceHash: String?
     ): Result<GmailUploadResult> {
-        val uploadResult = uploadConversation(email)
+        val uploadResult = uploadConversation(
+            requireNotNull(email) { "Mirror backup requires a MIME message." }
+        )
         val gmailResult = uploadResult.getOrNull() ?: return uploadResult
 
-        persistSnapshot(
-            ConversationSnapshotEntity(
+        try {
+            persistSnapshot(
+                ConversationSnapshotEntity(
                 id = existingSnapshot?.id ?: 0L,
                 accountId = accountId,
                 accountEmail = accountEmail,
@@ -58,8 +62,12 @@ class MirrorBackupStrategy(
                 gmailThreadId = gmailResult.threadId,
                 firstMessageDate = conversation.firstMessageDate,
                 lastMessageDate = conversation.lastMessageDate
+                )
             )
-        )
+        } catch (error: Throwable) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            throw SnapshotPersistenceAfterUploadException(error)
+        }
 
         existingSnapshot?.gmailMessageId
             ?.takeIf { it.isNotBlank() && it != gmailResult.messageId }

@@ -1,5 +1,11 @@
 # Roadmap
 
+## Incremental Archive checkpoint
+
+**Implemented:** Room v7 local-source checkpoints, bulk local classification, cached-message-first comparison, lazy bounded shared-index recovery, separate incremental/reconciliation UI actions, and count/timing-only diagnostics.
+
+**Planned:** Durable remote index persistence and exact-resume/run journals.
+
 Status is relative to the conversation-snapshot branch. Each stage depends on the stages above it.
 
 ## Stage 0 — Current foundation (implemented/partial)
@@ -21,7 +27,9 @@ Depends on Stage 0.
 
 Depends on Stage 1.
 
-- Replace the test cap with Backup Now for every changed conversation.
+- **Implemented:** Full Backup Now processes every local conversation for Archive accounts.
+- **Partially implemented:** Full Archive uses a run-scoped Gmail metadata index; physical scale validation and durable resume/index persistence remain pending.
+- **Planned:** Full Mirror remains blocked until deletion preview, thresholds, confirmation, and recovery safeguards are implemented.
 - Add durable per-conversation retry/resume, idempotency, cancellation, and large-conversation batching/size handling.
 - Rebuild the local Gmail index after reinstall by querying labels and OpenSMSBackup headers/attachments.
 - Detect remote/local divergence according to archive or mirror policy.

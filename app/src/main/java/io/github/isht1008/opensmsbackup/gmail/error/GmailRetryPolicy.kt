@@ -17,6 +17,7 @@ class GmailRetryPolicy(
         operationName: String,
         profileId: String,
         onRetry: suspend (attempt: Int, maximumAttempts: Int) -> Unit = { _, _ -> },
+        onBackoff: suspend (Long) -> Unit = {},
         operation: suspend () -> T
     ): T {
         require(maximumAttempts > 0)
@@ -45,6 +46,7 @@ class GmailRetryPolicy(
 
                 logger(diagnostic(operationName, profileId, attempt, failure, retryDelay))
                 onRetry(attempt + 1, maximumAttempts)
+                onBackoff(retryDelay)
                 delayBlock(retryDelay)
             }
         }

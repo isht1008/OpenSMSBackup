@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         AccountSettingsEntity::class,
         BackupVerificationEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class BackupDatabase : RoomDatabase() {

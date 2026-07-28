@@ -58,3 +58,30 @@ Preferred command from the repository root:
 ```
 
 If Java is not found, set `JAVA_HOME` to `C:\Program Files\Android\Android Studio\jbr` for the shell, or build the `app` debug variant in Android Studio. Before finishing any change: run `git status`, review `git diff`, run the relevant tests and debug build, list changed files, and identify physical-device tests still required. Do not commit.
+
+## Execution authorization and autonomy
+
+For all tasks in this repository:
+
+- Proceed autonomously through the complete requested implementation.
+- The user's request to implement or change a feature authorizes ordinary, in-scope source edits, test edits, documentation edits, formatting, read-only inspection, relevant unit tests, and debug builds.
+- Do not pause for confirmation before those routine in-scope operations.
+- Batch independent read-only commands and validation commands whenever practical.
+- Use the built-in patch editor for workspace changes.
+- Reuse previously approved narrow command prefixes for Gradle and read-only Git commands.
+- If the interface requires mandatory approval, request one narrowly scoped reusable approval instead of multiple individual approvals.
+- Never request blanket shell, PowerShell, Python, filesystem, Git, ADB, network, or external-service access.
+- Continue automatically after successful tests and builds.
+- If a test or build fails, diagnose it, make only the smallest correction within the approved design, and rerun affected validation without asking again.
+- Stop and request explicit approval before:
+  - staging, committing, amending, pushing, tagging, merging, or creating releases;
+  - installing or changing anything on a physical device;
+  - mutating Gmail, Google Drive, OAuth configuration, or another external service;
+  - deleting, restoring, moving, or overwriting user data;
+  - deleting or restoring repository files outside the clearly requested change;
+  - modifying `.git` or `local.properties`;
+  - performing destructive Git operations;
+  - expanding the implementation beyond the approved feature or design.
+- Never bypass a mandatory safety approval.
+- Never interpret this section as authorization to commit, push, install, delete data, mutate external services, or broaden task scope.
+- Before handoff, run the repository-required status, diff, tests, and debug-build checks without waiting for additional permission.

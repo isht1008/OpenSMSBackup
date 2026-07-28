@@ -36,13 +36,16 @@ import androidx.core.content.ContextCompat
 import io.github.isht1008.opensmsbackup.ui.component.PrimaryButton
 import io.github.isht1008.opensmsbackup.ui.component.StatusCard
 import io.github.isht1008.opensmsbackup.ui.component.GmailAccountManagementCard
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupScope
 import io.github.isht1008.opensmsbackup.viewmodel.HomeViewModel
 import java.text.DateFormat
 import java.util.Date
 
 private enum class PendingBackupAction {
     LOCAL,
-    GMAIL,
+    GMAIL_INCREMENTAL,
+    GMAIL_FULL,
+    GMAIL_RECENT_TEST,
     VERIFY
 }
 
@@ -92,10 +95,19 @@ fun HomeScreen(
                 onBackupClick(hasContactsPermission())
             }
 
-            PendingBackupAction.GMAIL -> {
+            PendingBackupAction.GMAIL_INCREMENTAL,
+            PendingBackupAction.GMAIL_FULL,
+            PendingBackupAction.GMAIL_RECENT_TEST -> {
+                val scope =
+                    when (pendingBackupAction) {
+                        PendingBackupAction.GMAIL_INCREMENTAL -> GmailBackupScope.INCREMENTAL
+                        PendingBackupAction.GMAIL_FULL -> GmailBackupScope.FULL
+                        else -> GmailBackupScope.RECENT_TEST
+                    }
                 viewModel.backupSmsToGmail(
                     context = context,
                     includeContactNames = hasContactsPermission(),
+                    backupScope = scope,
                     notificationsEnabled =
                         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
                             ContextCompat.checkSelfPermission(
@@ -274,7 +286,7 @@ fun HomeScreen(
                 modifier = Modifier.height(16.dp)
             )
 
-            if (viewModel.isGmailBackingUp) {
+            if (false && viewModel.isGmailBackingUp) {
                 Spacer(
                     modifier = Modifier.height(16.dp)
                 )
@@ -305,9 +317,19 @@ fun HomeScreen(
                 verification = viewModel.latestVerification,
                 gmailBackupActive = viewModel.isGmailBackingUp,
                 allBackupActionsBusy = backupInProgress,
-                onBackup = {
+                onIncrementalBackup = {
                     requestPermissionsAndRun(
-                        PendingBackupAction.GMAIL
+                        PendingBackupAction.GMAIL_INCREMENTAL
+                    )
+                },
+                onFullBackup = {
+                    requestPermissionsAndRun(
+                        PendingBackupAction.GMAIL_FULL
+                    )
+                },
+                onRecentTestBackup = {
+                    requestPermissionsAndRun(
+                        PendingBackupAction.GMAIL_RECENT_TEST
                     )
                 },
                 onHistory = onBackupHistoryClick,
@@ -350,7 +372,25 @@ fun HomeScreen(
                 Text("Completed: ${DateFormat.getDateTimeInstance().format(Date(result.completedAt))}")
             }
 
-            if (backupInProgress) {
+            val gmailSurface = GmailBackupSurfaceDecision.resolve(
+                gmailActive = viewModel.isGmailBackingUp,
+                gmailTerminalAvailable =
+                    viewModel.gmailBackupCompletion != null ||
+                        viewModel.gmailBackupUiState.hasTerminalResult(),
+                localBackupActive = viewModel.isBackingUp,
+                verificationActive = viewModel.isVerifying
+            )
+
+            if (gmailSurface.showProgress) {
+                Spacer(modifier = Modifier.height(24.dp))
+                GmailBackupProgressCard(
+                    state = viewModel.gmailBackupUiState,
+                    cancellationRequested = viewModel.isGmailBackupCancellationRequested,
+                    onCancel = viewModel::cancelGmailBackup
+                )
+            }
+
+            if (backupInProgress && !gmailSurface.showProgress) {
                 Spacer(
                     modifier = Modifier.height(32.dp)
                 )
@@ -381,15 +421,33 @@ fun HomeScreen(
                         when {
                             viewModel.isGmailBackingUp -> buildString {
                                 append("Gmail Backup")
-                                gmailState.accountEmail?.let {
-                                    append("\nAccount: $it")
-                                }
                                 if (gmailState.total > 0) {
                                     append("\nChecked: ${gmailState.checked} / ${gmailState.total}")
                                     append("\nUploaded: ${gmailState.uploaded}")
-                                    append("\nUnchanged: ${gmailState.unchanged}")
+                                    append("\nLocally unchanged: ${gmailState.locallyUnchanged}")
+                                    if (gmailState.legacyLocallyInitialized > 0) {
+                                        append("\nLegacy initialized locally: ${gmailState.legacyLocallyInitialized}")
+                                    }
+                                    append("\nRemotely checked: ${gmailState.remotelyCompared}")
+                                    append("\nRemotely checked - no update: ${gmailState.remotelyUnchanged}")
+                                    append("\nRemote recoveries: ${gmailState.remoteRecoveries}")
                                     append("\nFailed: ${gmailState.failed}")
+                                    append("\nRemaining: ${gmailState.remaining}")
                                 }
+                                if (gmailState.indexedMessages > 0) {
+                                    append("\nIndex scanned: ${gmailState.indexedMessages}")
+                                    append("\nOwned snapshots: ${gmailState.acceptedIndexMessages}")
+                                }
+                                if (gmailState.conversationsPerMinute > 0) {
+                                    append("\nRate: ${gmailState.conversationsPerMinute} conversations/min")
+                                }
+                                append("\nTime elapsed: ${formatBackupDuration(gmailState.elapsedMillis)}")
+                                append(
+                                    "\nEstimated time remaining: " +
+                                        (gmailState.approximateEtaSeconds?.let {
+                                            formatBackupDuration(it * 1_000L)
+                                        } ?: "Calculating")
+                                )
                                 append("\nStatus: ${gmailState.phase}")
                             }
                             viewModel.isVerifying -> buildString {
@@ -407,29 +465,69 @@ fun HomeScreen(
                 )
             }
 
+            if (gmailSurface.showResult) {
+                Spacer(modifier = Modifier.height(24.dp))
+                viewModel.gmailBackupCompletion?.let {
+                    GmailBackupResultCard(it)
+                } ?: GmailBackupFallbackResultCard(viewModel.gmailBackupUiState)
+            }
+
+            if (false) {
+                viewModel.gmailBackupCompletion?.let { completion ->
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Gmail backup result", fontWeight = FontWeight.Bold)
+                    Text(
+                        buildString {
+                            append(
+                                "Backup type: " +
+                                    when (completion.backupScope) {
+                                        io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupScope.INCREMENTAL ->
+                                            "Incremental"
+                                        io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupScope.FULL ->
+                                            "Full reconciliation"
+                                        io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupScope.RECENT_TEST ->
+                                            "Recent-10 test"
+                                    }
+                            )
+                            completion.accountEmail?.let { append("\nAccount: $it") }
+                            append("\nMode: ${completion.backupMode?.name ?: "Unavailable"}")
+                            append("\nTotal duration: ${formatBackupDuration(completion.durationMillis)}")
+                            append("\nSource conversations: ${completion.sourceConversationTotal}")
+                            append("\nSource messages: ${completion.sourceMessageTotal}")
+                            append("\nConversations checked: ${completion.checked}")
+                            append("\nLocally unchanged: ${completion.locallyUnchanged}")
+                            append("\nLegacy initialized locally: ${completion.legacyLocallyInitialized}")
+                            append("\nRemotely checked: ${completion.remotelyCompared}")
+                            append("\nRemotely checked - no update: ${completion.remotelyUnchanged}")
+                            append("\nActual conversations uploaded: ${completion.uploaded}")
+                            append("\nRemote recoveries: ${completion.remoteRecoveries}")
+                            append("\nFailed: ${completion.failed}")
+                            append("\nRemaining/unattempted: ${completion.remaining}")
+                            append("\nCompletion state: ${completion.state.name}")
+                            append("\nGmail index recovery used: ${if (completion.gmailIndexUsed) "Yes" else "No"}")
+                            if (completion.isLimitedTest) {
+                                append("\nThis Recent-10 test was not a complete full backup.")
+                            }
+                        }
+                    )
+                }
+            }
+
             Spacer(
                 modifier = Modifier.height(40.dp)
             )
 
-            StatusCard(
-                status =
-                    if (viewModel.status == "Ready") {
-                        viewModel.accountStatus
-                    } else {
-                        "${viewModel.accountStatus}\n\n${viewModel.status}"
-                    },
-                progress =
-                    when {
-                        viewModel.isBackingUp ->
-                            viewModel.progress
-
-                        viewModel.isGmailBackingUp ->
-                            viewModel.gmailBackupProgress
-
-                        else ->
-                            null
-                    }
-            )
+            if (gmailSurface.showGenericStatus) {
+                StatusCard(
+                    status =
+                        if (viewModel.status == "Ready") {
+                            viewModel.accountStatus
+                        } else {
+                            viewModel.accountStatus + "\n\n" + viewModel.status
+                        },
+                    progress = if (viewModel.isBackingUp) viewModel.progress else null
+                )
+            }
 
             Spacer(
                 modifier = Modifier.height(24.dp)
@@ -441,4 +539,13 @@ fun HomeScreen(
         }
     }
 
+}
+
+private fun formatBackupDuration(millis: Long): String {
+    val seconds = (millis / 1_000L).coerceAtLeast(0L)
+    return when {
+        seconds < 60L -> "${seconds}s"
+        seconds < 3_600L -> "${seconds / 60L}m ${seconds % 60L}s"
+        else -> "${seconds / 3_600L}h ${(seconds % 3_600L) / 60L}m"
+    }
 }

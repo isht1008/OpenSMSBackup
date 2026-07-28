@@ -17,6 +17,7 @@ import io.github.isht1008.opensmsbackup.gmail.account.GmailAccountManager
 import io.github.isht1008.opensmsbackup.gmail.api.GmailApiClient
 import io.github.isht1008.opensmsbackup.sms.SmsRepository
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupConversationLimiter
+import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupScope
 import io.github.isht1008.opensmsbackup.gmail.backup.SmsConversationSnapshotBuilder
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.NonCancellable
@@ -61,7 +62,8 @@ class BackupVerificationWorker(context: Context, params: WorkerParameters) : Cor
         val mode = MultiAccountRepository.create(applicationContext).getBackupMode(profileId)
         val allLocal = SmsRepository().getSmsMessages(applicationContext, false)
         val localScope = GmailBackupConversationLimiter.applyConversations(
-            SmsConversationSnapshotBuilder().build(allLocal)
+            SmsConversationSnapshotBuilder().build(allLocal),
+            GmailBackupScope.RECENT_TEST
         )
         val local = localScope.conversations.flatMap { it.messages }
         val request = BackupVerificationRequest(profileId, profile.accountEmail, device.deviceId,

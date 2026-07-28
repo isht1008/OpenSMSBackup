@@ -14,6 +14,12 @@ For a changed conversation: compute the hash, upload the new message, store its 
 
 Room v2 keys current snapshots by `(account_id, android_thread_id)` and stores a render-version-sensitive SHA-256 hash. This is implemented but not portable identity; a stable cross-device identity is planned.
 
+**Implemented:** Room v7 keeps two distinct hashes. `snapshotHash` continues to describe the merged snapshot persisted in Gmail. `localSourceHash` v2 hashes canonically ordered raw source/output inputs: membership, IDs, thread IDs, address/contact output fields, body, raw timestamp, direction/type, subscription, read state, and service center. Locale/time-zone-formatted dates are derived output and are not hashed directly; renderer changes deliberately increment the checkpoint version. Exact v1 matches are upgraded locally in one Room batch without Gmail access. The checkpoint also records the installation Device Profile ID; an account or Device Profile mismatch cannot use the local fast path. A null legacy checkpoint requires one safe comparison.
+
+Archive checkpoints advance only after an already-identical local classification, a successful remote no-op comparison, or successful upload plus Room persistence. Authorization, lookup, parsing, ownership, merge, upload, persistence, and cancellation failures do not advance unfinished checkpoints. Phone deletions therefore trigger one comparison, remain preserved in Gmail, then become locally skippable after a successful no-op.
+
+Routine `INCREMENTAL` Archive work classifies locally before remote access. An all-match run returns before Gmail label, snapshot, search, or index setup. Cached Gmail message IDs are tried first for changed conversations. A bounded shared Gmail archive index is initialized lazily, at most once per run, only when cached recovery is required. Explicit `FULL` reconciliation may build the complete index and remains separate because it can be expensive.
+
 ### Archive before mirror
 
 Archive is the recommended default: preserve remote backups when device messages disappear. Mirror is optional and must never silently infer deletion intent. It requires an explicit mode choice, dry-run/preview, deletion thresholds, reauthentication/confirmation for large changes, retry safety, and recovery guidance.
@@ -37,6 +43,8 @@ Every installation owns a random UUID Device Profile stored independently of Gma
 Gmail is the verification source of truth. Verification consumes V1/V2 message aliases within account/device-scoped V2/V3 archives; counts alone never establish health. Extra archived messages are reported without automatically calling them corruption, and unreadable or incomplete scope prevents `VERIFIED`. Verification performs no Gmail mutation and stores no SMS content in Room history.
 
 ## Current compromises
+
+**Implemented:** A null legacy checkpoint normally requires remote comparison, with one installation-local exception. Bootstrap requires incremental Archive mode, matching account context, a cached Gmail ID, exact current ConversationSnapshotHashGenerator equality with persisted snapshotHash, and snapshot backupTime at or before lastBackupTime. That account timestamp advances only after successful non-aborted zero-failure Full reconciliation. Missing proof, device/profile uncertainty, deletions, additions, and render changes retain remote comparison.
 
 - Android `threadId` is used as conversation identity.
 - Snapshot account ID remains normalized Gmail email, while account selection and worker ownership use immutable profile IDs.

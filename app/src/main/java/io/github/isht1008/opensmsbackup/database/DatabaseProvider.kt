@@ -231,6 +231,26 @@ object DatabaseProvider {
         }
     }
 
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                "ALTER TABLE `conversation_snapshots` ADD COLUMN `local_source_hash` TEXT DEFAULT NULL"
+            )
+            database.execSQL(
+                "ALTER TABLE `conversation_snapshots` ADD COLUMN `local_source_message_count` INTEGER DEFAULT NULL"
+            )
+            database.execSQL(
+                "ALTER TABLE `conversation_snapshots` ADD COLUMN `local_source_last_message_date` INTEGER DEFAULT NULL"
+            )
+            database.execSQL(
+                "ALTER TABLE `conversation_snapshots` ADD COLUMN `local_source_max_sms_id` INTEGER DEFAULT NULL"
+            )
+            database.execSQL(
+                "ALTER TABLE `conversation_snapshots` ADD COLUMN `local_source_device_id` TEXT DEFAULT NULL"
+            )
+        }
+    }
+
     @Volatile
     private var instance: BackupDatabase? = null
 
@@ -252,7 +272,8 @@ object DatabaseProvider {
                             MIGRATION_2_3,
                             MIGRATION_3_4,
                             MIGRATION_4_5,
-                            MIGRATION_5_6
+                            MIGRATION_5_6,
+                            MIGRATION_6_7
                         )
                         .build()
                         .also { database ->

@@ -73,6 +73,19 @@ class GmailRetryPolicyTest {
         }
     }
 
+    @Test fun `retry delay is operation local and does not leak after success`() = runBlocking {
+        val delays = mutableListOf<Long>()
+        val policy = policy(delayBlock = { delays += it })
+        var firstCalls = 0
+        policy.execute("first", "profile") {
+            firstCalls++
+            if (firstCalls == 1) throw SocketTimeoutException()
+            Unit
+        }
+        policy.execute("second", "profile") { Unit }
+        assertEquals(listOf(1_000L), delays)
+    }
+
     private fun policy(
         delayBlock: suspend (Long) -> Unit = {}
     ) = GmailRetryPolicy(
