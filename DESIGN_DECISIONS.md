@@ -58,3 +58,13 @@ Gmail is the verification source of truth. Verification consumes V1/V2 message a
 - Drive storage location, exported database envelope, encryption and key recovery.
 - Archive/mirror reconciliation rules after reinstall or multi-device use.
 - Large snapshot segmentation without breaking the one-conversation logical model.
+
+## Full Mirror decision
+
+**Implemented:** destructive Mirror reconciliation requires a read-only persisted preview, immutable profile/account/device/label binding, complete local-SMS proof, bounded owned-namespace indexing, typed Trash confirmation, and revalidation immediately before execution. Replacements use upload -> Room persist -> ownership validation -> recoverable Trash. Account A Archive and Account B Mirror data are never shared. Cross-account Gmail mutations are serialized intentionally.
+
+## Mirror identity is installation-thread scoped
+
+**Implemented:** Mirror identity deliberately differs from Archive identity. Android thread ID is authoritative for current-installation Mirror grouping. `mirror-thread-v1` binds the thread to profile, account, and device before hashing. Address normalization is diagnostic only and cannot make a valid sender unrepresentable. This prevents address-key collisions while ensuring reinstall/device-profile loss cannot claim older snapshots automatically.
+
+**Implemented:** local and remote classification conservation is a safety invariant. Duplicate keys remain explicit conflicts, and exceeding 10,000 supported candidates produces `LIMIT_EXCEEDED` without truncation. A blocked preview exposes no confirmation control.

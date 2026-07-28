@@ -11,7 +11,8 @@ import java.util.UUID
 
 class MultiAccountRepository(
     private val accountDao: AccountProfileDao,
-    private val selectedProfileStore: SelectedProfileStore
+    private val selectedProfileStore: SelectedProfileStore,
+    private val mirrorReconciliationDao: io.github.isht1008.opensmsbackup.database.MirrorReconciliationDao? = null
 ) : GmailBackupModeStore {
 
     fun observeProfiles(): Flow<List<AccountProfileEntity>> {
@@ -60,6 +61,8 @@ class MultiAccountRepository(
                 changedAt = System.currentTimeMillis()
             )
         )
+        mirrorReconciliationDao?.invalidatePendingForPolicyChange(profileId)
+
     }
 
     suspend fun getSelectedProfile(): AccountProfileEntity? {
@@ -297,9 +300,8 @@ class MultiAccountRepository(
                 accountDao =
                     database.accountProfileDao(),
                 selectedProfileStore =
-                    SelectedProfileStore(
-                        context.applicationContext
-                    )
+                    SelectedProfileStore(context.applicationContext),
+                mirrorReconciliationDao = database.mirrorReconciliationDao()
             )
         }
     }

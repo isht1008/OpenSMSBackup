@@ -11,6 +11,7 @@ class MirrorBackupStrategy(
     private val persistSnapshot: suspend (ConversationSnapshotEntity) -> Unit,
     private val accountId: String,
     private val accountEmail: String,
+    private val profileId: String = "",
     private val canTrashPrevious: suspend (
         String,
         SmsConversationSnapshot
@@ -22,6 +23,7 @@ class MirrorBackupStrategy(
         snapshotDao: io.github.isht1008.opensmsbackup.database.ConversationSnapshotDao,
         accountId: String,
         accountEmail: String,
+        profileId: String,
         canTrashPrevious: suspend (String, SmsConversationSnapshot) -> Boolean = { _, _ -> true },
         onPreviousSnapshotTrashed: (String) -> Unit = {}
     ) : this(
@@ -30,6 +32,7 @@ class MirrorBackupStrategy(
         persistSnapshot = { snapshotDao.insert(it) },
         accountId = accountId,
         accountEmail = accountEmail,
+        profileId = profileId,
         canTrashPrevious = canTrashPrevious,
         onPreviousSnapshotTrashed = onPreviousSnapshotTrashed
     )
@@ -51,7 +54,8 @@ class MirrorBackupStrategy(
             persistSnapshot(
                 ConversationSnapshotEntity(
                 id = existingSnapshot?.id ?: 0L,
-                accountId = accountId,
+                    profileId = existingSnapshot?.profileId?.takeIf { it.isNotBlank() } ?: profileId,
+                    accountId = accountId,
                 accountEmail = accountEmail,
                 androidThreadId = conversation.threadId,
                 address = conversation.address.orEmpty(),

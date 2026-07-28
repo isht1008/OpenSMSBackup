@@ -52,3 +52,15 @@ SMS/MMS/call-log restore and default-messaging-app behavior. OpenSMSBackup v1 is
 - `viewmodel/`, `ui/`, `navigation/`: manual flows and status UI.
 
 See `ROADMAP.md`, `DESIGN_DECISIONS.md`, and the topic documents under `docs/` before implementation work.
+
+## Full Mirror synchronization status
+
+**Implemented:** Full Mirror uses a persisted, expiring, immutable preview for one Mirror profile and device. It never derives ownership from the later selected account. Account A Archive state is isolated from Account B Mirror state. See `docs/FULL_MIRROR.md` for the safety ordering, recovery journal, and limitations.
+
+## Mirror thread identity correction
+
+**Implemented:** Full Mirror and Recent-10 Mirror use `mirror-thread-v1`, an opaque SHA-256 identity derived from immutable profile, normalized Mirror account ownership, installation device ID, and Android thread ID. Valid short codes, alphanumeric/service senders, non-normalizable sender strings, and supported multi-recipient address strings no longer depend on phone normalization for identity. Archive V2/V3 identity and incremental Archive checkpoints are unchanged.
+
+**Implemented:** preview classification conserves local and remote candidates separately. Every local conversation and accepted remote candidate contributes exactly once, and invariant checks fail safely if totals do not reconcile. The supported plan limit is 10,000 local and 10,000 accepted remote candidates; over-limit plans remain fully classified but are blocked explicitly as `LIMIT_EXCEEDED`, never truncated or converted to generic conflicts.
+
+**Implemented:** cached legacy Mirror identity-version 2/3 snapshots are migration candidates only when the profile-scoped Room reference matches the Gmail message and account/device/label/thread ownership validates. Migration uses upload -> persist -> ownership validation -> recoverable Trash. Uncached or ambiguous legacy state remains a conflict. Account A Archive data is never considered for this path.

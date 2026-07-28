@@ -17,6 +17,7 @@ class ArchiveAppendBackupStrategy(
     private val persistSnapshot: suspend (ConversationSnapshotEntity) -> Unit,
     private val accountId: String,
     private val accountEmail: String,
+    private val profileId: String = "",
     private val deviceProfile: DeviceProfile? = null,
     private val merger: ArchiveConversationMerger = ArchiveConversationMerger(),
     private val emailBuilder: ConversationMimeMessageBuilder = ConversationMimeMessageBuilder(),
@@ -35,6 +36,7 @@ class ArchiveAppendBackupStrategy(
         snapshotDao: ConversationSnapshotDao,
         accountId: String,
         accountEmail: String,
+        profileId: String,
         deviceProfile: DeviceProfile,
         onInserted: suspend (SmsConversationSnapshot, GmailUploadResult, Long) -> Unit =
             { _, _, _ -> },
@@ -45,6 +47,7 @@ class ArchiveAppendBackupStrategy(
         locateArchive = locator::locate,
         uploadConversation = uploader::uploadConversation,
         persistSnapshot = { snapshotDao.insert(it) },
+        profileId = profileId,
         accountId = accountId,
         accountEmail = accountEmail,
         deviceProfile = deviceProfile,
@@ -139,7 +142,8 @@ class ArchiveAppendBackupStrategy(
             persistSnapshot(
                 ConversationSnapshotEntity(
                 id = existingSnapshot?.id ?: 0L,
-                accountId = accountId,
+                profileId = profileId,
+        accountId = accountId,
                 accountEmail = accountEmail,
                 androidThreadId = conversation.threadId,
                 address = merge.conversation.address.orEmpty(),
@@ -179,6 +183,7 @@ class ArchiveAppendBackupStrategy(
         localSourceHash: String?
     ): ConversationSnapshotEntity = ConversationSnapshotEntity(
         id = existingSnapshot?.id ?: 0L,
+        profileId = profileId,
         accountId = accountId,
         accountEmail = accountEmail,
         androidThreadId = conversation.threadId,

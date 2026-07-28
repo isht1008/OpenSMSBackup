@@ -38,6 +38,7 @@ import io.github.isht1008.opensmsbackup.account.data.AccountManagementRepository
 import io.github.isht1008.opensmsbackup.account.data.MultiAccountRepository
 import io.github.isht1008.opensmsbackup.ui.component.BackupPolicyWizard
 import io.github.isht1008.opensmsbackup.gmail.account.AndroidGmailAccountExitOperations
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorCoordinator
 
 @Composable
 fun SettingsScreen(
@@ -54,7 +55,8 @@ fun SettingsScreen(
                 DeviceProfileStore.create(context),
                 AccountManagementRepository.create(context),
                 MultiAccountRepository.create(context),
-                AndroidGmailAccountExitOperations(context)
+                AndroidGmailAccountExitOperations(context),
+                FullMirrorCoordinator(context)
             )
         )
 

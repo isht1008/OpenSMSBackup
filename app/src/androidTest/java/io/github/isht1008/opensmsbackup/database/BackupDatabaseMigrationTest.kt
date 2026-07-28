@@ -140,6 +140,27 @@ class BackupDatabaseMigrationTest {
         }
     }
 
+
+    @Test fun migration7To8PreservesRowsAndAddsProfileBoundMirrorJournals() {
+        val name = "migration-7-8"
+        helper.createDatabase(name, 7).apply {
+            execSQL("INSERT INTO account_profiles (profile_id, provider_account_id, account_email, display_name, photo_url, connection_state, created_time, updated_time) VALUES ('profile-a', NULL, 'archive@example.com', NULL, NULL, 'CONNECTED', 1, 1)")
+            execSQL("INSERT INTO account_settings (profile_id, backup_enabled, gmail_enabled, drive_enabled, include_contact_names, backup_mode, previous_policy, policy_changed_at, backup_label, scheduled_backup_enabled, encryption_enabled) VALUES ('profile-a', 1, 1, 0, 1, 'ARCHIVE_APPEND_ONLY', NULL, NULL, 'SMS', 0, 0)")
+            execSQL("INSERT INTO conversation_snapshots (account_id, account_email, android_thread_id, address, contact_name, message_count, snapshot_hash, local_source_hash, local_source_message_count, local_source_last_message_date, local_source_max_sms_id, local_source_device_id, gmail_message_id, gmail_thread_id, first_message_date, last_message_date, backup_time) VALUES ('archive@example.com', 'archive@example.com', 7, 'fixture', NULL, 1, 'snapshot', 'local', 1, 2, 3, 'device', 'message', NULL, 1, 2, 3)")
+            close()
+        }
+        helper.runMigrationsAndValidate(name, 8, true, DatabaseProvider.MIGRATION_7_8).use { database ->
+            database.query("SELECT profile_id, snapshot_hash, local_source_hash, gmail_message_id FROM conversation_snapshots WHERE android_thread_id = 7").use {
+                it.moveToFirst()
+                assertEquals("profile-a", it.getString(0))
+                assertEquals("snapshot", it.getString(1))
+                assertEquals("local", it.getString(2))
+                assertEquals("message", it.getString(3))
+            }
+            database.query("SELECT count(*) FROM mirror_reconciliation_runs").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+            database.query("SELECT count(*) FROM mirror_reconciliation_items").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        }
+    }
     private companion object {
         const val DATABASE_NAME = "migration-3-4"
     }

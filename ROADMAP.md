@@ -63,3 +63,11 @@ Depends on stable identity and rendering.
 ## Stage 6 — Restore (deferred beyond v1)
 
 OpenSMSBackup v1 is backup-only and does not act as the default messaging application or write to the Android SMS provider. Any future restore proposal requires a separate product and safety review after the backup platform is stable.
+
+## Full Mirror synchronization
+
+**Implemented:** production-safe preview, confirmation, immutable Account B binding, bounded recovery, Room journal, recoverable Trash ordering, cancellation/resume, progress UI, and automated regression coverage. **Deferred:** permanent deletion, automatic conflict resolution, and concurrent multi-account Gmail mutations.
+
+## Full Mirror identity compatibility
+
+**Implemented:** Mirror-thread identity, sender-type support, classification conservation, bounded 10,000-item plans, aggregate reason diagnostics, blocked-preview controls, and controlled cached-legacy replacement. **Planned:** second physical read-only preview and aggregate reason review before any Full Mirror execution.

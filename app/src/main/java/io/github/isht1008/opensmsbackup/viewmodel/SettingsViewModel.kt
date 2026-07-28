@@ -38,7 +38,8 @@ class SettingsViewModel(
     private val deviceProfileStore: DeviceProfileStore,
     private val accountManagementRepository: AccountManagementRepository,
     backupModeStore: GmailBackupModeStore,
-    accountExitOperations: GmailAccountExitOperations
+    accountExitOperations: GmailAccountExitOperations,
+    private val hasActiveFullMirror: suspend (String) -> Boolean = { false }
 ) : ViewModel() {
 
     private val backupModeController = GmailBackupModeController(backupModeStore)
@@ -183,7 +184,7 @@ class SettingsViewModel(
             busyProfileId = item.profile.profileId
             backupModeController.load(item.profile.profileId)
             backupModeController.openPolicyWizard(
-                gmailBackupWorkCoordinator.hasActiveWork(item.profile.profileId)
+                gmailBackupWorkCoordinator.hasActiveWork(item.profile.profileId) || hasActiveFullMirror(item.profile.profileId)
             )
             backupPolicyUiState = backupModeController.state
             backupPolicyUiState.errorMessage?.let { errorMessage = it }
@@ -205,7 +206,7 @@ class SettingsViewModel(
         val profileId = backupPolicyUiState.profileId ?: return
         if (backupPolicyUiState.isSaving || backupPolicyUiState.pendingMode == null) return
         viewModelScope.launch {
-            val backupActive = gmailBackupWorkCoordinator.hasActiveWork(profileId)
+            val backupActive = gmailBackupWorkCoordinator.hasActiveWork(profileId) || hasActiveFullMirror(profileId)
             val saved = backupModeController.confirmPolicyChange(backupActive)
             backupPolicyUiState = backupModeController.state
             errorMessage = when {
@@ -280,6 +281,10 @@ class SettingsViewModel(
         gmailAccountExitState = accountExitController.state
         viewModelScope.launch {
             val profileId = accountExitController.state.profile?.profileId
+            if (profileId != null && hasActiveFullMirror(profileId)) {
+                errorMessage = "Cancel the active Full Mirror synchronization for this account before disconnecting or revoking it."
+                return@launch
+            }
             busyProfileId = profileId
             when (val result = accountExitController.executeConfirmed()) {
                 is GmailAccountExitResult.Success -> {

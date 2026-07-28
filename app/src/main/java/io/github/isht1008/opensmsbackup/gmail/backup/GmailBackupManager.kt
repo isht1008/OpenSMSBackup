@@ -199,7 +199,7 @@ class GmailBackupManager {
 
                 onStage(GmailBackupStage.CHECKING_LOCAL_CHECKPOINTS)
                 val classificationStarted = android.os.SystemClock.elapsedRealtime()
-                val snapshotsByThreadId = snapshotDao.findAllForAccount(accountId)
+                val snapshotsByThreadId = snapshotDao.findAllForProfile(accountProfile.profileId, accountId)
                     .associateBy { it.androidThreadId }
                 val checkpointClassification =
                     if (
@@ -455,15 +455,14 @@ class GmailBackupManager {
                     snapshotDao = snapshotDao,
                     accountId = accountId,
                     accountEmail = trimmedEmail,
+                    profileId = accountProfile.profileId,
                     canTrashPrevious = { messageId, conversation ->
                         archiveReader.read(messageId).getOrNull()?.let { document ->
-                            DeviceSnapshotOwnership.matchesV2(
-                                document,
-                                trimmedEmail,
-                                deviceProfile.deviceId,
-                                deviceLabelId,
-                                conversation,
-                                deviceProfile.defaultRegion
+                            DeviceSnapshotOwnership.matchesMirrorThread(
+                                document, accountProfile.profileId, trimmedEmail, deviceProfile.deviceId,
+                                deviceLabelId, conversation.threadId
+                            ) || DeviceSnapshotOwnership.matchesV2(
+                                document, trimmedEmail, deviceProfile.deviceId, deviceLabelId, conversation, deviceProfile.defaultRegion
                             )
                         } == true
                     },
@@ -493,6 +492,7 @@ class GmailBackupManager {
                         snapshotDao = snapshotDao,
                         accountId = accountId,
                         accountEmail = trimmedEmail,
+                        profileId = accountProfile.profileId,
                         deviceProfile = deviceProfile,
                         onInserted = { conversation, result, internalDate ->
                             (archiveIndex ?: lazyArchiveIndex?.peek())?.recordUploaded(
@@ -601,7 +601,11 @@ class GmailBackupManager {
                             conversation = conversation,
                             accountEmail = trimmedEmail,
                             snapshotHash = snapshotHash,
-                            deviceProfile = deviceProfile
+                            deviceProfile = deviceProfile,
+                            conversationKeyOverride = io.github.isht1008.opensmsbackup.gmail.mirror.MirrorConversationIdentity.key(
+                                accountProfile.profileId, trimmedEmail, deviceProfile.deviceId, conversation.threadId
+                            ),
+                            identityVersionOverride = io.github.isht1008.opensmsbackup.gmail.mirror.MirrorConversationIdentity.WIRE_NAME
                         )
                     } else {
                         null

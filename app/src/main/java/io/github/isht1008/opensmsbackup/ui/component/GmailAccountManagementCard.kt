@@ -26,6 +26,7 @@ import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
 import io.github.isht1008.opensmsbackup.account.data.GmailBackupModeUiState
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.database.BackupVerificationEntity
+import io.github.isht1008.opensmsbackup.ui.screen.maskGmailAccount
 import java.text.DateFormat
 import java.util.Date
 
@@ -53,7 +54,7 @@ fun GmailAccountManagementCard(
             title = { Text("Start Full Archive Backup?") },
             text = {
                 Column {
-                    AccountValue("Selected Account", profile.accountEmail)
+                    AccountValue("Selected Account", maskGmailAccount(profile.accountEmail) ?: "Account")
                     AccountValue("Backup Mode", "Archive")
                     Text(
                         "Every local SMS conversation and the complete Gmail Archive namespace " +
@@ -97,7 +98,7 @@ fun GmailAccountManagementCard(
                 return@Column
             }
 
-            AccountValue("Account", profile.accountEmail)
+            AccountValue("Account", maskGmailAccount(profile.accountEmail) ?: "Account")
             AccountValue("Connection", connectionLabel(profile.connectionState))
             AccountValue("Current Backup Policy", policyLabel(policyState.mode, policyState.isLoading))
             AccountValue(
@@ -106,15 +107,17 @@ fun GmailAccountManagementCard(
             )
             AccountValue("Backup Health", healthLabel(verification))
 
+            if (policyState.mode == GmailBackupMode.ARCHIVE_APPEND_ONLY) {
+                Spacer(Modifier.padding(top = 4.dp))
+                PrimaryButton(
+                    "Backup Now",
+                    onIncrementalBackup,
+                    enabled = !allBackupActionsBusy
+                )
+            }
             Spacer(Modifier.padding(top = 4.dp))
             PrimaryButton(
-                "Backup Now",
-                onIncrementalBackup,
-                enabled = !allBackupActionsBusy
-            )
-            Spacer(Modifier.padding(top = 4.dp))
-            PrimaryButton(
-                if (gmailBackupActive) "Backing up to Gmail…" else "Reconcile Full Backup",
+                if (gmailBackupActive) "Backing up to Gmail…" else if (policyState.mode == GmailBackupMode.MIRROR) "Full Mirror Preview" else "Reconcile Full Backup",
                 {
                     if (policyState.mode == GmailBackupMode.ARCHIVE_APPEND_ONLY) {
                         showFullBackupConfirmation = true
@@ -125,8 +128,13 @@ fun GmailAccountManagementCard(
                 enabled = !allBackupActionsBusy
             )
             Text(
-                "Reconciliation checks every conversation and the complete Gmail archive. " +
-                    "It can take significantly longer.",
+                if (policyState.mode == GmailBackupMode.MIRROR) {
+                    "Creates a read-only, account-specific Full Mirror preview first. " +
+                        "Your Archive account and its Gmail backups are not affected."
+                } else {
+                    "Reconciliation checks every conversation and the complete Gmail archive. " +
+                        "It can take significantly longer."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp)
             )

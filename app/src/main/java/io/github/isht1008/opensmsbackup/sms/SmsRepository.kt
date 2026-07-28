@@ -5,6 +5,12 @@ import android.provider.Telephony
 import io.github.isht1008.opensmsbackup.contact.ContactRepository
 import io.github.isht1008.opensmsbackup.util.DateUtils
 
+data class SmsReadCompletenessResult(
+    val messages: List<SmsMessage>,
+    val providerCount: Int?,
+    val complete: Boolean,
+    val failureCategory: String?
+)
 class SmsRepository {
 
     private val contactRepository =
@@ -224,6 +230,45 @@ class SmsRepository {
         return smsList
     }
 
+
+    fun getCompleteSmsMessages(
+        context: Context,
+        includeContactNames: Boolean
+    ): SmsReadCompletenessResult {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.READ_SMS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            return SmsReadCompletenessResult(emptyList(), null, false, "PERMISSION_MISSING")
+        }
+        return try {
+            val before = queryCountOrNull(context)
+                ?: return SmsReadCompletenessResult(emptyList(), null, false, "COUNT_UNAVAILABLE")
+            val messages = getSmsMessages(context, includeContactNames)
+            val after = queryCountOrNull(context)
+                ?: return SmsReadCompletenessResult(messages, null, false, "COUNT_UNAVAILABLE")
+            val consistent = before == after && messages.size == after
+            SmsReadCompletenessResult(
+                messages = messages,
+                providerCount = after,
+                complete = consistent,
+                failureCategory = if (consistent) null else "COUNT_INCONSISTENT"
+            )
+        } catch (error: Throwable) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            SmsReadCompletenessResult(emptyList(), null, false, "QUERY_FAILED")
+        }
+    }
+
+    private fun queryCountOrNull(context: Context): Int? =
+        context.contentResolver.query(
+            Telephony.Sms.CONTENT_URI,
+            arrayOf(Telephony.Sms._ID),
+            null,
+            null,
+            null
+        )?.use { it.count }
     private fun android.database.Cursor.getNullableString(
         columnIndex: Int
     ): String? {

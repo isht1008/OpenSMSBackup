@@ -115,3 +115,13 @@ Archive search is restricted to the current device label and rejects another dev
 Message fingerprints are explicitly versioned. V1 preserves the previous byte-for-byte algorithm. New comparisons also calculate V2 from the country-aware address, direction, timestamp, and body. Archive merging stores both aliases in a hash set, so messages represented by legacy V1 semantics are not appended again solely because the fingerprint version changed. New format-v3 attachments remain format-v3 and add optional `fingerprintVersion` and `defaultRegion` metadata plus equivalent MIME headers; older parsers can ignore these additive fields.
 
 New snapshots use archive identity V3: normalized account, installation device ID, and country-aware address. Discovery searches V3 first, then the existing device-scoped V2 key in the same device label. Legacy V1 remains limited to the pre-existing Room-linked cached-message compatibility rule, so a second device cannot claim it. Existing V1/V2 identities and format-v3 attachments are not rewritten or invalidated.
+
+## Full Mirror
+
+**Implemented:** A Mirror profile exposes Full Mirror Preview instead of routine Archive actions. Preview is read-only and account/device scoped. Confirmed work uses the captured Mirror profile, not the currently selected profile; Archive profiles and their Gmail labels/checkpoints/history are untouched. Full Mirror moves only validated owned superseded or remote-only snapshots to recoverable Gmail Trash and never permanently deletes. See `FULL_MIRROR.md`.
+
+## Mirror identity and preview conservation
+
+**Implemented:** Full Mirror and limited Mirror tests use the installation-scoped `mirror-thread-v1` identity. Short codes, alphanumeric/service senders, non-normalizable sender text, and supported multi-recipient threads are representable when Android thread ID is valid. Archive identity remains V2/V3 and is not changed.
+
+Preview diagnostics use aggregate categories only: missing/empty address, normalization failure, short code, alphanumeric sender, email-like sender, multi-recipient, invalid thread, duplicate local/remote identity, ambiguous legacy identity, missing ownership header, account/device/label mismatch, format/identity-version mismatch, cache mismatch, unreadable, limit exceeded, and other. No identity examples are logged.

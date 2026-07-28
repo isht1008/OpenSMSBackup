@@ -45,7 +45,9 @@ class ConversationMimeMessageBuilder {
         conversation: SmsConversationSnapshot,
         accountEmail: String,
         snapshotHash: String,
-        deviceProfile: DeviceProfile? = null
+        deviceProfile: DeviceProfile? = null,
+        conversationKeyOverride: String? = null,
+        identityVersionOverride: String? = null
     ): SmsEmail {
 
         require(accountEmail.isNotBlank()) {
@@ -80,7 +82,9 @@ class ConversationMimeMessageBuilder {
                 conversation = conversation,
                 accountEmail = accountEmail,
                 snapshotHash = snapshotHash,
-                deviceProfile = deviceProfile
+                deviceProfile = deviceProfile,
+                conversationKeyOverride = conversationKeyOverride,
+                identityVersionOverride = identityVersionOverride
             ),
             htmlBody = buildHtmlBody(
                 conversation = conversation,
@@ -479,7 +483,9 @@ class ConversationMimeMessageBuilder {
         conversation: SmsConversationSnapshot,
         accountEmail: String,
         snapshotHash: String,
-        deviceProfile: DeviceProfile?
+        deviceProfile: DeviceProfile?,
+        conversationKeyOverride: String?,
+        identityVersionOverride: String?
     ): Map<String, String> {
 
         val messageId =
@@ -543,7 +549,7 @@ class ConversationMimeMessageBuilder {
 
             put(
                 OpenSmsHeaders.CONVERSATION_KEY,
-                if (deviceProfile == null) {
+                conversationKeyOverride ?: if (deviceProfile == null) {
                     ArchiveConversationIdentity.key(conversation.address, accountEmail)
                 } else {
                     ArchiveConversationIdentity.key(
@@ -557,7 +563,7 @@ class ConversationMimeMessageBuilder {
             )
 
             if (deviceProfile != null) {
-                put(OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION, "3")
+                put(OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION, identityVersionOverride ?: "3")
                 put(OpenSmsHeaders.DEVICE_ID, sanitizeHeaderValue(deviceProfile.deviceId))
                 put(
                     OpenSmsHeaders.DEVICE_NAME,

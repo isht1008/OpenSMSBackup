@@ -251,6 +251,24 @@ object DatabaseProvider {
         }
     }
 
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE `conversation_snapshots` ADD COLUMN `profile_id` TEXT NOT NULL DEFAULT ''")
+            database.execSQL("UPDATE `conversation_snapshots` SET `profile_id` = COALESCE((SELECT `profile_id` FROM `account_profiles` WHERE lower(`account_profiles`.`account_email`) = lower(`conversation_snapshots`.`account_email`) LIMIT 1), '')")
+            database.execSQL("DROP INDEX IF EXISTS `index_conversation_snapshots_account_id_android_thread_id`")
+            database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_conversation_snapshots_profile_id_account_id_android_thread_id` ON `conversation_snapshots` (`profile_id`, `account_id`, `android_thread_id`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_conversation_snapshots_profile_id_local_source_device_id_android_thread_id` ON `conversation_snapshots` (`profile_id`, `local_source_device_id`, `android_thread_id`)")
+            database.execSQL("CREATE TABLE IF NOT EXISTS `mirror_reconciliation_runs` (`run_id` TEXT NOT NULL, `profile_id` TEXT NOT NULL, `account_identity` TEXT NOT NULL, `device_id` TEXT NOT NULL, `device_label_id` TEXT NOT NULL, `expected_policy` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `expires_at` INTEGER NOT NULL, `local_dataset_fingerprint` TEXT NOT NULL, `remote_index_fingerprint` TEXT NOT NULL, `local_scan_complete` INTEGER NOT NULL, `local_conversations` INTEGER NOT NULL, `owned_remote_conversations` INTEGER NOT NULL, `unchanged_count` INTEGER NOT NULL, `upload_new_count` INTEGER NOT NULL, `replace_changed_count` INTEGER NOT NULL, `trash_remote_only_count` INTEGER NOT NULL, `recover_cache_count` INTEGER NOT NULL, `conflict_count` INTEGER NOT NULL, `foreign_ignored_count` INTEGER NOT NULL, `failed_count` INTEGER NOT NULL, `estimated_reads` INTEGER NOT NULL, `estimated_uploads` INTEGER NOT NULL, `estimated_trash_moves` INTEGER NOT NULL, `estimated_duration_millis` INTEGER NOT NULL, `status` TEXT NOT NULL, `confirmed_at` INTEGER, `completed_at` INTEGER, `terminal_reason` TEXT, PRIMARY KEY(`run_id`), FOREIGN KEY(`profile_id`) REFERENCES `account_profiles`(`profile_id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_runs_profile_id` ON `mirror_reconciliation_runs` (`profile_id`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_runs_profile_id_device_id_status` ON `mirror_reconciliation_runs` (`profile_id`, `device_id`, `status`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_runs_created_at` ON `mirror_reconciliation_runs` (`created_at`)")
+            database.execSQL("CREATE TABLE IF NOT EXISTS `mirror_reconciliation_items` (`run_id` TEXT NOT NULL, `item_id` TEXT NOT NULL, `profile_id` TEXT NOT NULL, `account_identity` TEXT NOT NULL, `device_id` TEXT NOT NULL, `conversation_key` TEXT NOT NULL, `android_thread_id` INTEGER, `action` TEXT NOT NULL, `expected_local_source_hash` TEXT, `expected_remote_snapshot_hash` TEXT, `prior_gmail_message_id` TEXT, `state` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `resulting_gmail_message_id` TEXT, `warning_category` TEXT, `failure_category` TEXT, `completed_at` INTEGER, PRIMARY KEY(`run_id`, `item_id`), FOREIGN KEY(`run_id`) REFERENCES `mirror_reconciliation_runs`(`run_id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_run_id` ON `mirror_reconciliation_items` (`run_id`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_run_id_action_state` ON `mirror_reconciliation_items` (`run_id`, `action`, `state`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_profile_id_device_id` ON `mirror_reconciliation_items` (`profile_id`, `device_id`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_profile_id_android_thread_id` ON `mirror_reconciliation_items` (`profile_id`, `android_thread_id`)")
+        }
+    }
     @Volatile
     private var instance: BackupDatabase? = null
 
@@ -273,7 +291,8 @@ object DatabaseProvider {
                             MIGRATION_3_4,
                             MIGRATION_4_5,
                             MIGRATION_5_6,
-                            MIGRATION_6_7
+                            MIGRATION_6_7,
+                            MIGRATION_7_8
                         )
                         .build()
                         .also { database ->

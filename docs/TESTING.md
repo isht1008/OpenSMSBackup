@@ -33,3 +33,28 @@ Before handoff run `git status`, inspect `git diff`, run the relevant build/test
 ## Incremental Archive physical validation
 
 **Implemented:** Physical validation passed on the primary Samsung test device. Legacy initialization safely established 3,238 local checkpoints while uncertain rows continued through remote comparison. An unchanged 3,330-conversation / 34,950-message run then completed in approximately 17 seconds with all conversations locally unchanged and zero Gmail reads, searches, index builds, uploads, recoveries, retries, or failures. Two subsequent messages from two different numbers correctly changed two conversations: the run used two cached remote comparisons and two persisted uploads without search, recovery, index construction, retry, throttle delay, or failure, completing in approximately 14 seconds. Its immediate unchanged follow-up completed locally in approximately 10 seconds with zero Gmail operations. The compact terminal UI showed one masked, user-facing result with expandable details and no duplicate status or invalid terminal ETA.
+
+## Full Mirror validation
+
+**Implemented automated coverage:** preview classification, incomplete/empty scans, ambiguous identities, duplicate/foreign ownership rejection, Account A/B key isolation, expiry and typed confirmation, high-risk Trash threshold, remote fingerprint staleness, upload/persist/Trash ordering, ambiguous upload non-repeat, Trash-only resume, ownership-failure stop, scalar immutable WorkManager data, account masking, and Room 7-to-8 migration compilation.
+
+**Planned physical dual-account test:**
+
+1. Configure Account A as Archive and Account B as Mirror; record both masked identities and independent policies.
+2. Select Account B and request Full Mirror Preview. Verify the preview names masked Account B once and says Archive account is not affected.
+3. Before confirmation, switch selection to Account A. Confirm that execution remains bound to Account B or is rejected safely; never allow Account A credentials or labels to substitute.
+4. Inspect preview counts. Resolve every conflict/failure. If Trash is proposed, enter exactly `MIRROR <count>`.
+5. Confirm once. Observe progress/cancel without changing account policy, disconnecting, or starting another Gmail operation.
+6. Verify Account B replacements are uploaded and persisted before prior owned Account B snapshots move to Trash; remote-only Account B snapshots move only after ownership validation.
+7. Verify Account A Archive messages, device labels, checkpoints, history, policy, and connection remain unchanged.
+8. Cancel a separate controlled run at a safe boundary, reopen the app, and resume. Verify completed uploads are not repeated and a prior Trash warning resumes Trash only.
+9. Verify foreign, other-device, malformed, ambiguous-address, and unreadable snapshots are not changed.
+10. Capture only aggregate `OpenSMSBackup` diagnostics; never record account identities, message contents, tokens, hashes, or full Gmail IDs.
+
+Do not automate this test because confirmation is intentionally user initiated and Gmail-mutating.
+
+## Mirror-thread preview regression coverage
+
+**Implemented:** tests cover exact conservation at 3,330 conversations, a supported 10,000-conversation plan, explicit non-truncating 10,001 limit blocking, short-code/alphanumeric/non-normalizable senders, invalid and duplicate threads, duplicate remote identities, cross-account/device separation, Archive V3 preservation, thirteen cached legacy replacements, uncached legacy conflict, blocked confirmation hiding, safe typed confirmation, scalar WorkManager data, and upload/persist/Trash ordering.
+
+For a physical preview, capture the aggregate `full_mirror_preview` diagnostic after the user manually creates the preview. Compare `local` with `local_classified` and `remote_candidates` with `remote_classified`; both pairs must match. Review nonzero reason categories before any confirmation.

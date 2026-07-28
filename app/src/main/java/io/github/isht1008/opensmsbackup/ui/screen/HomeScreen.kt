@@ -45,6 +45,7 @@ private enum class PendingBackupAction {
     LOCAL,
     GMAIL_INCREMENTAL,
     GMAIL_FULL,
+    FULL_MIRROR_PREVIEW,
     GMAIL_RECENT_TEST,
     VERIFY
 }
@@ -66,7 +67,7 @@ fun HomeScreen(
 
     val backupInProgress =
         viewModel.isBackingUp ||
-                viewModel.isGmailBackingUp || viewModel.isVerifying
+                viewModel.isGmailBackingUp || viewModel.isVerifying || viewModel.isFullMirrorActive || viewModel.isCreatingFullMirrorPreview
 
     var pendingBackupAction by remember {
         mutableStateOf<PendingBackupAction?>(null)
@@ -93,6 +94,10 @@ fun HomeScreen(
         when (pendingBackupAction) {
             PendingBackupAction.LOCAL -> {
                 onBackupClick(hasContactsPermission())
+            }
+
+            PendingBackupAction.FULL_MIRROR_PREVIEW -> {
+                viewModel.createFullMirrorPreview(context, hasContactsPermission())
             }
 
             PendingBackupAction.GMAIL_INCREMENTAL,
@@ -324,7 +329,9 @@ fun HomeScreen(
                 },
                 onFullBackup = {
                     requestPermissionsAndRun(
-                        PendingBackupAction.GMAIL_FULL
+                        if (viewModel.gmailBackupModeUiState.mode == io.github.isht1008.opensmsbackup.account.data.GmailBackupMode.MIRROR) {
+                            PendingBackupAction.FULL_MIRROR_PREVIEW
+                        } else PendingBackupAction.GMAIL_FULL
                     )
                 },
                 onRecentTestBackup = {
@@ -335,6 +342,34 @@ fun HomeScreen(
                 onHistory = onBackupHistoryClick,
                 onOpenSettings = onSettingsClick
             )
+
+            viewModel.fullMirrorPreview?.let { preview ->
+                FullMirrorPreviewDialog(
+                    preview = preview,
+                    error = viewModel.fullMirrorError,
+                    onConfirm = viewModel::confirmFullMirror,
+                    onDismiss = viewModel::dismissFullMirrorPreview
+                )
+            }
+            if (viewModel.isFullMirrorActive) {
+                viewModel.fullMirrorProgress?.let { progress ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    FullMirrorProgressCard(progress, viewModel::cancelFullMirror)
+                }
+            }
+            if (!viewModel.isFullMirrorActive) {
+                viewModel.fullMirrorResult?.let { result ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    FullMirrorResultCard(result, viewModel::resumeFullMirror)
+                }
+            }
+            if (viewModel.isCreatingFullMirrorPreview) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Building a read-only Full Mirror preview…")
+            }
+            if (viewModel.fullMirrorPreview == null) {
+                viewModel.fullMirrorError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
 
             Spacer(
                 modifier = Modifier.height(16.dp)

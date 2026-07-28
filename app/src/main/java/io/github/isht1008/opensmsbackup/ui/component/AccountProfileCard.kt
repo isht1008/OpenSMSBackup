@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import io.github.isht1008.opensmsbackup.database.AccountProfileEntity
 import io.github.isht1008.opensmsbackup.database.BackupVerificationEntity
 import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
+import io.github.isht1008.opensmsbackup.ui.screen.maskGmailAccount
 import java.text.DateFormat
 import java.util.Date
 
@@ -59,7 +60,7 @@ fun AccountProfileCard(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = profile.accountEmail,
+                text = maskGmailAccount(profile.accountEmail) ?: "Account",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
