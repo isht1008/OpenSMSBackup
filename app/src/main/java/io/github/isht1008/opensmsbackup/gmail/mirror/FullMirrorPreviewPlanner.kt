@@ -119,9 +119,20 @@ object FullMirrorPreviewPlanner {
     private fun localConflict(binding: FullMirrorBinding, key: String, local: SmsConversationSnapshot, ordinal: Int, reason: FullMirrorFailureCategory) =
         localItem(binding, key, local, ordinal, FullMirrorAction.CONFLICT, reason)
     private fun remoteItem(binding: FullMirrorBinding, remote: OwnedRemoteSnapshot, ordinal: Int, action: FullMirrorAction, reason: FullMirrorFailureCategory) =
-        FullMirrorPreviewItem(digest("${binding.runId}\u0000remote\u0000${remote.conversationKey}\u0000$ordinal"), remote.conversationKey, remote.androidThreadId, action, null, remote.snapshotHash, remote.messageId, reason)
+        FullMirrorPreviewItem(digest("${binding.runId}\u0000remote\u0000${remote.conversationKey}\u0000$ordinal"), remote.conversationKey, remote.androidThreadId, action, null, remote.snapshotHash, remote.messageId, reason, proof(binding, remote))
     private fun combinedItem(binding: FullMirrorBinding, key: String, local: SmsConversationSnapshot, remote: OwnedRemoteSnapshot, ordinal: Int, action: FullMirrorAction, reason: FullMirrorFailureCategory = FullMirrorFailureCategory.NONE) =
-        FullMirrorPreviewItem(digest("${binding.runId}\u0000both\u0000$key\u0000$ordinal"), key, local.threadId, action, LocalConversationSourceHashGenerator.generate(local), remote.snapshotHash, remote.messageId, reason)
+        FullMirrorPreviewItem(digest("${binding.runId}\u0000both\u0000$key\u0000$ordinal"), key, local.threadId, action, LocalConversationSourceHashGenerator.generate(local), remote.snapshotHash, remote.messageId, reason, proof(binding, remote))
+
+    private fun proof(binding: FullMirrorBinding, remote: OwnedRemoteSnapshot): FullMirrorOldTargetProof? {
+        val threadId = remote.androidThreadId ?: return null
+        val hash = remote.snapshotHash ?: return null
+        if (!remote.ownershipValid || remote.messageId.isBlank()) return null
+        return FullMirrorOldTargetProof(
+            binding.profileId, binding.accountIdentity, binding.deviceId, binding.deviceLabelId,
+            threadId, remote.messageId, hash, remote.ownershipConversationKeyHeader,
+            remote.identityVersionHeader, remote.formatVersionHeader
+        )
+    }
 
     private fun addressReason(c: SmsConversationSnapshot, region: String): FullMirrorFailureCategory? {
         val address = c.address

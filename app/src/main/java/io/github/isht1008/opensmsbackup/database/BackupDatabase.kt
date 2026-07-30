@@ -14,7 +14,7 @@ import androidx.room.RoomDatabase
         MirrorReconciliationRunEntity::class,
         MirrorReconciliationItemEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class BackupDatabase : RoomDatabase() {

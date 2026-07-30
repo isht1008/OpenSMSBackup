@@ -13,7 +13,7 @@ OpenSMSBackup is an Android 12+ privacy-first SMS backup app. The current code r
 - Local format-v2 JSON export to `Documents/OpenSMSBackup` through MediaStore, plus a simple backup-history list.
 - Multiple Room-backed Google account profiles with selected profile ID in DataStore and profile-aware Gmail `gmail.modify` access.
 - Gmail format-v3 snapshot generation: one email per Android `threadId`, chronological sent/received content, HTML and plain text, custom headers, and restore JSON attachment.
-- Room database v7 with account profiles/settings, policy transition metadata, legacy backup and conversation-snapshot tables, local-source Archive checkpoints, and count-only verification history; explicit migrations exist.
+- Room database v9 with account profiles/settings, policy transition metadata, legacy backup and conversation-snapshot tables, local-source Archive checkpoints, Full Mirror journals with immutable superseded-target proof, and count-only verification history; explicit non-destructive migrations exist.
 - Incremental Gmail comparison using a SHA-256 snapshot hash. Replacement is uploaded and persisted before the previous message is moved to Trash.
 - Routine Archive `INCREMENTAL` work bulk-loads Room checkpoints and skips checkpoint-identical conversations without reading Gmail snapshots or building the remote index. `FULL` is the explicit full reconciliation scope.
 - Routine Archive checkpoint v2 hashes raw deterministic source fields rather than locale-formatted dates. Exact v1 matches are upgraded in one local Room batch without Gmail access; null or genuinely mismatched rows still receive a safe remote comparison.
@@ -56,6 +56,8 @@ See `ROADMAP.md`, `DESIGN_DECISIONS.md`, and the topic documents under `docs/` b
 ## Full Mirror synchronization status
 
 **Implemented:** Full Mirror uses a persisted, expiring, immutable preview for one Mirror profile and device. It never derives ownership from the later selected account. Account A Archive state is isolated from Account B Mirror state. See `docs/FULL_MIRROR.md` for the safety ordering, recovery journal, and limitations.
+
+**Implemented:** production physical Full Mirror validation completed a 3,332-conversation plan and its journal-aware Trash-only recovery with all items completed, zero duplicate uploads, zero Account A operations, and zero permanent deletions. Diagnostic evidence is retained outside Git.
 
 ## Mirror thread identity correction
 

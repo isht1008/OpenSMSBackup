@@ -1,0 +1,1146 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 9,
+    "identityHash": "b681eba21b456433c03d986327333531",
+    "entities": [
+      {
+        "tableName": "backup_accounts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `account_email` TEXT NOT NULL, `display_name` TEXT, `photo_url` TEXT, `drive_file_id` TEXT, `drive_revision_id` TEXT, `last_sync_time` INTEGER NOT NULL, `last_backup_time` INTEGER NOT NULL, `last_restore_time` INTEGER NOT NULL, `is_default` INTEGER NOT NULL, `created_time` INTEGER NOT NULL, `backup_enabled` INTEGER NOT NULL, `backup_label` TEXT NOT NULL, PRIMARY KEY(`account_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountEmail",
+            "columnName": "account_email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "display_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "photoUrl",
+            "columnName": "photo_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "driveFileId",
+            "columnName": "drive_file_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "driveRevisionId",
+            "columnName": "drive_revision_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastSyncTime",
+            "columnName": "last_sync_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastBackupTime",
+            "columnName": "last_backup_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastRestoreTime",
+            "columnName": "last_restore_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDefault",
+            "columnName": "is_default",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdTime",
+            "columnName": "created_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupEnabled",
+            "columnName": "backup_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupLabel",
+            "columnName": "backup_label",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_accounts_account_email",
+            "unique": true,
+            "columnNames": [
+              "account_email"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_backup_accounts_account_email` ON `${TABLE_NAME}` (`account_email`)"
+          }
+        ]
+      },
+      {
+        "tableName": "backup_messages",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `account_id` TEXT NOT NULL, `account_email` TEXT NOT NULL, `sms_id` INTEGER NOT NULL, `thread_id` INTEGER NOT NULL, `address` TEXT NOT NULL, `message_date` INTEGER NOT NULL, `message_type` INTEGER NOT NULL, `fingerprint` TEXT NOT NULL, `gmail_message_id` TEXT, `gmail_thread_id` TEXT, `backup_time` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountEmail",
+            "columnName": "account_email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "smsId",
+            "columnName": "sms_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "threadId",
+            "columnName": "thread_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageDate",
+            "columnName": "message_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageType",
+            "columnName": "message_type",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fingerprint",
+            "columnName": "fingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gmailMessageId",
+            "columnName": "gmail_message_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "gmailThreadId",
+            "columnName": "gmail_thread_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "backupTime",
+            "columnName": "backup_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_messages_account_id_fingerprint",
+            "unique": true,
+            "columnNames": [
+              "account_id",
+              "fingerprint"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_backup_messages_account_id_fingerprint` ON `${TABLE_NAME}` (`account_id`, `fingerprint`)"
+          },
+          {
+            "name": "index_backup_messages_account_id_sms_id",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "sms_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_messages_account_id_sms_id` ON `${TABLE_NAME}` (`account_id`, `sms_id`)"
+          },
+          {
+            "name": "index_backup_messages_thread_id",
+            "unique": false,
+            "columnNames": [
+              "thread_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_messages_thread_id` ON `${TABLE_NAME}` (`thread_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "conversation_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `profile_id` TEXT NOT NULL, `account_id` TEXT NOT NULL, `account_email` TEXT NOT NULL, `android_thread_id` INTEGER NOT NULL, `address` TEXT NOT NULL, `contact_name` TEXT, `message_count` INTEGER NOT NULL, `snapshot_hash` TEXT NOT NULL, `local_source_hash` TEXT, `local_source_message_count` INTEGER, `local_source_last_message_date` INTEGER, `local_source_max_sms_id` INTEGER, `local_source_device_id` TEXT, `gmail_message_id` TEXT NOT NULL, `gmail_thread_id` TEXT, `first_message_date` INTEGER NOT NULL, `last_message_date` INTEGER NOT NULL, `backup_time` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profile_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountEmail",
+            "columnName": "account_email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "androidThreadId",
+            "columnName": "android_thread_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contactName",
+            "columnName": "contact_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "messageCount",
+            "columnName": "message_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "snapshotHash",
+            "columnName": "snapshot_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localSourceHash",
+            "columnName": "local_source_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localSourceMessageCount",
+            "columnName": "local_source_message_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "localSourceLastMessageDate",
+            "columnName": "local_source_last_message_date",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "localSourceMaxSmsId",
+            "columnName": "local_source_max_sms_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "localSourceDeviceId",
+            "columnName": "local_source_device_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "gmailMessageId",
+            "columnName": "gmail_message_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gmailThreadId",
+            "columnName": "gmail_thread_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "firstMessageDate",
+            "columnName": "first_message_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastMessageDate",
+            "columnName": "last_message_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupTime",
+            "columnName": "backup_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_conversation_snapshots_profile_id_account_id_android_thread_id",
+            "unique": true,
+            "columnNames": [
+              "profile_id",
+              "account_id",
+              "android_thread_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_conversation_snapshots_profile_id_account_id_android_thread_id` ON `${TABLE_NAME}` (`profile_id`, `account_id`, `android_thread_id`)"
+          },
+          {
+            "name": "index_conversation_snapshots_account_email",
+            "unique": false,
+            "columnNames": [
+              "account_email"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_conversation_snapshots_account_email` ON `${TABLE_NAME}` (`account_email`)"
+          },
+          {
+            "name": "index_conversation_snapshots_android_thread_id",
+            "unique": false,
+            "columnNames": [
+              "android_thread_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_conversation_snapshots_android_thread_id` ON `${TABLE_NAME}` (`android_thread_id`)"
+          },
+          {
+            "name": "index_conversation_snapshots_profile_id_local_source_device_id_android_thread_id",
+            "unique": false,
+            "columnNames": [
+              "profile_id",
+              "local_source_device_id",
+              "android_thread_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_conversation_snapshots_profile_id_local_source_device_id_android_thread_id` ON `${TABLE_NAME}` (`profile_id`, `local_source_device_id`, `android_thread_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "account_profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`profile_id` TEXT NOT NULL, `provider_account_id` TEXT, `account_email` TEXT NOT NULL, `display_name` TEXT, `photo_url` TEXT, `connection_state` TEXT NOT NULL, `created_time` INTEGER NOT NULL, `updated_time` INTEGER NOT NULL, PRIMARY KEY(`profile_id`))",
+        "fields": [
+          {
+            "fieldPath": "profileId",
+            "columnName": "profile_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "providerAccountId",
+            "columnName": "provider_account_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "accountEmail",
+            "columnName": "account_email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "display_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "photoUrl",
+            "columnName": "photo_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "connectionState",
+            "columnName": "connection_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdTime",
+            "columnName": "created_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedTime",
+            "columnName": "updated_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "profile_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_account_profiles_account_email",
+            "unique": true,
+            "columnNames": [
+              "account_email"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_account_profiles_account_email` ON `${TABLE_NAME}` (`account_email`)"
+          },
+          {
+            "name": "index_account_profiles_provider_account_id",
+            "unique": true,
+            "columnNames": [
+              "provider_account_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_account_profiles_provider_account_id` ON `${TABLE_NAME}` (`provider_account_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "account_settings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`profile_id` TEXT NOT NULL, `backup_enabled` INTEGER NOT NULL, `gmail_enabled` INTEGER NOT NULL, `drive_enabled` INTEGER NOT NULL, `include_contact_names` INTEGER NOT NULL, `backup_mode` TEXT NOT NULL, `previous_policy` TEXT, `policy_changed_at` INTEGER, `backup_label` TEXT NOT NULL, `scheduled_backup_enabled` INTEGER NOT NULL, `encryption_enabled` INTEGER NOT NULL, PRIMARY KEY(`profile_id`), FOREIGN KEY(`profile_id`) REFERENCES `account_profiles`(`profile_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "profileId",
+            "columnName": "profile_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupEnabled",
+            "columnName": "backup_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gmailEnabled",
+            "columnName": "gmail_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "driveEnabled",
+            "columnName": "drive_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "includeContactNames",
+            "columnName": "include_contact_names",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupMode",
+            "columnName": "backup_mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "previousPolicy",
+            "columnName": "previous_policy",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "policyChangedAt",
+            "columnName": "policy_changed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "backupLabel",
+            "columnName": "backup_label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scheduledBackupEnabled",
+            "columnName": "scheduled_backup_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "encryptionEnabled",
+            "columnName": "encryption_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "profile_id"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "account_profiles",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "profile_id"
+            ],
+            "referencedColumns": [
+              "profile_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "backup_verifications",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `profile_id` TEXT NOT NULL, `account_email` TEXT NOT NULL, `device_id` TEXT NOT NULL, `device_name` TEXT NOT NULL, `mode` TEXT NOT NULL, `started_at` INTEGER NOT NULL, `completed_at` INTEGER NOT NULL, `status` TEXT NOT NULL, `local_message_count` INTEGER NOT NULL, `local_conversation_count` INTEGER NOT NULL, `archived_message_count` INTEGER NOT NULL, `archived_conversation_count` INTEGER NOT NULL, `matched_message_count` INTEGER NOT NULL, `missing_message_count` INTEGER NOT NULL, `unexpected_archived_message_count` INTEGER NOT NULL, `duplicate_fingerprint_count` INTEGER NOT NULL, `unreadable_archive_count` INTEGER NOT NULL, `verification_percent` REAL NOT NULL, `short_summary` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profile_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountEmail",
+            "columnName": "account_email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "device_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceName",
+            "columnName": "device_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "started_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completed_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localMessageCount",
+            "columnName": "local_message_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localConversationCount",
+            "columnName": "local_conversation_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archivedMessageCount",
+            "columnName": "archived_message_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archivedConversationCount",
+            "columnName": "archived_conversation_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "matchedMessageCount",
+            "columnName": "matched_message_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "missingMessageCount",
+            "columnName": "missing_message_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unexpectedArchivedMessageCount",
+            "columnName": "unexpected_archived_message_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "duplicateFingerprintCount",
+            "columnName": "duplicate_fingerprint_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unreadableArchiveCount",
+            "columnName": "unreadable_archive_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "verificationPercent",
+            "columnName": "verification_percent",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shortSummary",
+            "columnName": "short_summary",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_verifications_profile_id",
+            "unique": false,
+            "columnNames": [
+              "profile_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_verifications_profile_id` ON `${TABLE_NAME}` (`profile_id`)"
+          },
+          {
+            "name": "index_backup_verifications_completed_at",
+            "unique": false,
+            "columnNames": [
+              "completed_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_verifications_completed_at` ON `${TABLE_NAME}` (`completed_at`)"
+          }
+        ]
+      },
+      {
+        "tableName": "mirror_reconciliation_runs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`run_id` TEXT NOT NULL, `profile_id` TEXT NOT NULL, `account_identity` TEXT NOT NULL, `device_id` TEXT NOT NULL, `device_label_id` TEXT NOT NULL, `expected_policy` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `expires_at` INTEGER NOT NULL, `local_dataset_fingerprint` TEXT NOT NULL, `remote_index_fingerprint` TEXT NOT NULL, `local_scan_complete` INTEGER NOT NULL, `local_conversations` INTEGER NOT NULL, `owned_remote_conversations` INTEGER NOT NULL, `unchanged_count` INTEGER NOT NULL, `upload_new_count` INTEGER NOT NULL, `replace_changed_count` INTEGER NOT NULL, `trash_remote_only_count` INTEGER NOT NULL, `recover_cache_count` INTEGER NOT NULL, `conflict_count` INTEGER NOT NULL, `foreign_ignored_count` INTEGER NOT NULL, `failed_count` INTEGER NOT NULL, `estimated_reads` INTEGER NOT NULL, `estimated_uploads` INTEGER NOT NULL, `estimated_trash_moves` INTEGER NOT NULL, `estimated_duration_millis` INTEGER NOT NULL, `status` TEXT NOT NULL, `confirmed_at` INTEGER, `completed_at` INTEGER, `terminal_reason` TEXT, PRIMARY KEY(`run_id`), FOREIGN KEY(`profile_id`) REFERENCES `account_profiles`(`profile_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "runId",
+            "columnName": "run_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profile_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountIdentity",
+            "columnName": "account_identity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "device_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceLabelId",
+            "columnName": "device_label_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expectedPolicy",
+            "columnName": "expected_policy",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiresAt",
+            "columnName": "expires_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localDatasetFingerprint",
+            "columnName": "local_dataset_fingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remoteIndexFingerprint",
+            "columnName": "remote_index_fingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localScanComplete",
+            "columnName": "local_scan_complete",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localConversations",
+            "columnName": "local_conversations",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ownedRemoteConversations",
+            "columnName": "owned_remote_conversations",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unchangedCount",
+            "columnName": "unchanged_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uploadNewCount",
+            "columnName": "upload_new_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "replaceChangedCount",
+            "columnName": "replace_changed_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trashRemoteOnlyCount",
+            "columnName": "trash_remote_only_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recoverCacheCount",
+            "columnName": "recover_cache_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "conflictCount",
+            "columnName": "conflict_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "foreignIgnoredCount",
+            "columnName": "foreign_ignored_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failedCount",
+            "columnName": "failed_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedReads",
+            "columnName": "estimated_reads",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedUploads",
+            "columnName": "estimated_uploads",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedTrashMoves",
+            "columnName": "estimated_trash_moves",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedDurationMillis",
+            "columnName": "estimated_duration_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confirmedAt",
+            "columnName": "confirmed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "terminalReason",
+            "columnName": "terminal_reason",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "run_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_mirror_reconciliation_runs_profile_id",
+            "unique": false,
+            "columnNames": [
+              "profile_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_runs_profile_id` ON `${TABLE_NAME}` (`profile_id`)"
+          },
+          {
+            "name": "index_mirror_reconciliation_runs_profile_id_device_id_status",
+            "unique": false,
+            "columnNames": [
+              "profile_id",
+              "device_id",
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_runs_profile_id_device_id_status` ON `${TABLE_NAME}` (`profile_id`, `device_id`, `status`)"
+          },
+          {
+            "name": "index_mirror_reconciliation_runs_created_at",
+            "unique": false,
+            "columnNames": [
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_runs_created_at` ON `${TABLE_NAME}` (`created_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "account_profiles",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "profile_id"
+            ],
+            "referencedColumns": [
+              "profile_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "mirror_reconciliation_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`run_id` TEXT NOT NULL, `item_id` TEXT NOT NULL, `profile_id` TEXT NOT NULL, `account_identity` TEXT NOT NULL, `device_id` TEXT NOT NULL, `conversation_key` TEXT NOT NULL, `android_thread_id` INTEGER, `action` TEXT NOT NULL, `expected_local_source_hash` TEXT, `expected_remote_snapshot_hash` TEXT, `prior_gmail_message_id` TEXT, `state` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `resulting_gmail_message_id` TEXT, `warning_category` TEXT, `failure_category` TEXT, `completed_at` INTEGER, `old_target_profile_id` TEXT, `old_target_account_identity` TEXT, `old_target_device_id` TEXT, `old_target_device_label_id` TEXT, `old_target_android_thread_id` INTEGER, `old_target_gmail_message_id` TEXT, `old_target_snapshot_hash` TEXT, `old_target_conversation_key_header` TEXT, `old_target_identity_version_header` TEXT, `old_target_format_version_header` TEXT, `old_target_proof_version` TEXT, PRIMARY KEY(`run_id`, `item_id`), FOREIGN KEY(`run_id`) REFERENCES `mirror_reconciliation_runs`(`run_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "runId",
+            "columnName": "run_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemId",
+            "columnName": "item_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profile_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountIdentity",
+            "columnName": "account_identity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "device_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "conversationKey",
+            "columnName": "conversation_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "androidThreadId",
+            "columnName": "android_thread_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "action",
+            "columnName": "action",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expectedLocalSourceHash",
+            "columnName": "expected_local_source_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "expectedRemoteSnapshotHash",
+            "columnName": "expected_remote_snapshot_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "priorGmailMessageId",
+            "columnName": "prior_gmail_message_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resultingGmailMessageId",
+            "columnName": "resulting_gmail_message_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "warningCategory",
+            "columnName": "warning_category",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "failureCategory",
+            "columnName": "failure_category",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "oldTargetProfileId",
+            "columnName": "old_target_profile_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetAccountIdentity",
+            "columnName": "old_target_account_identity",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetDeviceId",
+            "columnName": "old_target_device_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetDeviceLabelId",
+            "columnName": "old_target_device_label_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetAndroidThreadId",
+            "columnName": "old_target_android_thread_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "oldTargetGmailMessageId",
+            "columnName": "old_target_gmail_message_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetSnapshotHash",
+            "columnName": "old_target_snapshot_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetConversationKeyHeader",
+            "columnName": "old_target_conversation_key_header",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetIdentityVersionHeader",
+            "columnName": "old_target_identity_version_header",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetFormatVersionHeader",
+            "columnName": "old_target_format_version_header",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldTargetProofVersion",
+            "columnName": "old_target_proof_version",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "run_id",
+            "item_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_mirror_reconciliation_items_run_id",
+            "unique": false,
+            "columnNames": [
+              "run_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_run_id` ON `${TABLE_NAME}` (`run_id`)"
+          },
+          {
+            "name": "index_mirror_reconciliation_items_run_id_action_state",
+            "unique": false,
+            "columnNames": [
+              "run_id",
+              "action",
+              "state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_run_id_action_state` ON `${TABLE_NAME}` (`run_id`, `action`, `state`)"
+          },
+          {
+            "name": "index_mirror_reconciliation_items_profile_id_device_id",
+            "unique": false,
+            "columnNames": [
+              "profile_id",
+              "device_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_profile_id_device_id` ON `${TABLE_NAME}` (`profile_id`, `device_id`)"
+          },
+          {
+            "name": "index_mirror_reconciliation_items_profile_id_android_thread_id",
+            "unique": false,
+            "columnNames": [
+              "profile_id",
+              "android_thread_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_profile_id_android_thread_id` ON `${TABLE_NAME}` (`profile_id`, `android_thread_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "mirror_reconciliation_runs",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "run_id"
+            ],
+            "referencedColumns": [
+              "run_id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b681eba21b456433c03d986327333531')"
+    ]
+  }
+}

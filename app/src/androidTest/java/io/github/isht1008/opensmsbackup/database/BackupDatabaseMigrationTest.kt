@@ -161,6 +161,31 @@ class BackupDatabaseMigrationTest {
             database.query("SELECT count(*) FROM mirror_reconciliation_items").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
         }
     }
+
+    @Test fun migration8To9PreservesWarningJournalAndBackfillsImmutableOldTargetProof() {
+        val name = "migration-8-9"
+        helper.createDatabase(name, 8).apply {
+            execSQL("INSERT INTO account_profiles (profile_id, provider_account_id, account_email, display_name, photo_url, connection_state, created_time, updated_time) VALUES ('profile-b', NULL, 'b@example.test', NULL, NULL, 'CONNECTED', 1, 1)")
+            execSQL("INSERT INTO mirror_reconciliation_runs (run_id, profile_id, account_identity, device_id, device_label_id, expected_policy, created_at, expires_at, local_dataset_fingerprint, remote_index_fingerprint, local_scan_complete, local_conversations, owned_remote_conversations, unchanged_count, upload_new_count, replace_changed_count, trash_remote_only_count, recover_cache_count, conflict_count, foreign_ignored_count, failed_count, estimated_reads, estimated_uploads, estimated_trash_moves, estimated_duration_millis, status, confirmed_at, completed_at, terminal_reason) VALUES ('run', 'profile-b', 'b@example.test', 'device-b', 'label-b', 'MIRROR', 1, 2, 'local', 'remote', 1, 3332, 21, 9, 3311, 12, 0, 0, 0, 0, 0, 21, 3323, 12, 1, 'COMPLETED_WITH_WARNINGS', 1, 2, NULL)")
+            execSQL("INSERT INTO mirror_reconciliation_items (run_id, item_id, profile_id, account_identity, device_id, conversation_key, android_thread_id, action, expected_local_source_hash, expected_remote_snapshot_hash, prior_gmail_message_id, state, attempts, resulting_gmail_message_id, warning_category, failure_category, completed_at) VALUES ('run', 'item', 'profile-b', 'b@example.test', 'device-b', 'key', 7, 'REPLACE_CHANGED', 'local', 'old-hash', 'old-id', 'WARNING', 0, 'new-id', 'TRASH', NULL, NULL)")
+            close()
+        }
+        helper.runMigrationsAndValidate(name, 9, true, DatabaseProvider.MIGRATION_8_9).use { database ->
+            database.query("SELECT state, resulting_gmail_message_id, old_target_profile_id, old_target_account_identity, old_target_device_id, old_target_device_label_id, old_target_android_thread_id, old_target_gmail_message_id, old_target_snapshot_hash, old_target_proof_version FROM mirror_reconciliation_items WHERE run_id = 'run'").use {
+                it.moveToFirst()
+                assertEquals("WARNING", it.getString(0))
+                assertEquals("new-id", it.getString(1))
+                assertEquals("profile-b", it.getString(2))
+                assertEquals("b@example.test", it.getString(3))
+                assertEquals("device-b", it.getString(4))
+                assertEquals("label-b", it.getString(5))
+                assertEquals(7L, it.getLong(6))
+                assertEquals("old-id", it.getString(7))
+                assertEquals("old-hash", it.getString(8))
+                assertEquals("V8_EXACT_ID_HASH_BINDING", it.getString(9))
+            }
+        }
+    }
     private companion object {
         const val DATABASE_NAME = "migration-3-4"
     }

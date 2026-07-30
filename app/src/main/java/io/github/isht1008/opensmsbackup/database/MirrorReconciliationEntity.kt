@@ -85,5 +85,16 @@ data class MirrorReconciliationItemEntity(
     @ColumnInfo(name = "resulting_gmail_message_id") val resultingGmailMessageId: String? = null,
     @ColumnInfo(name = "warning_category") val warningCategory: String? = null,
     @ColumnInfo(name = "failure_category") val failureCategory: String? = null,
-    @ColumnInfo(name = "completed_at") val completedAt: Long? = null
+    @ColumnInfo(name = "completed_at") val completedAt: Long? = null,
+    @ColumnInfo(name = "old_target_profile_id") val oldTargetProfileId: String? = null,
+    @ColumnInfo(name = "old_target_account_identity") val oldTargetAccountIdentity: String? = null,
+    @ColumnInfo(name = "old_target_device_id") val oldTargetDeviceId: String? = null,
+    @ColumnInfo(name = "old_target_device_label_id") val oldTargetDeviceLabelId: String? = null,
+    @ColumnInfo(name = "old_target_android_thread_id") val oldTargetAndroidThreadId: Long? = null,
+    @ColumnInfo(name = "old_target_gmail_message_id") val oldTargetGmailMessageId: String? = null,
+    @ColumnInfo(name = "old_target_snapshot_hash") val oldTargetSnapshotHash: String? = null,
+    @ColumnInfo(name = "old_target_conversation_key_header") val oldTargetConversationKeyHeader: String? = null,
+    @ColumnInfo(name = "old_target_identity_version_header") val oldTargetIdentityVersionHeader: String? = null,
+    @ColumnInfo(name = "old_target_format_version_header") val oldTargetFormatVersionHeader: String? = null,
+    @ColumnInfo(name = "old_target_proof_version") val oldTargetProofVersion: String? = null
 )

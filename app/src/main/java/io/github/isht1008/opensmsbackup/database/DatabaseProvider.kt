@@ -269,6 +269,35 @@ object DatabaseProvider {
             database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_reconciliation_items_profile_id_android_thread_id` ON `mirror_reconciliation_items` (`profile_id`, `android_thread_id`)")
         }
     }
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_profile_id TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_account_identity TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_device_id TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_device_label_id TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_android_thread_id INTEGER")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_gmail_message_id TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_snapshot_hash TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_conversation_key_header TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_identity_version_header TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_format_version_header TEXT")
+            database.execSQL("ALTER TABLE mirror_reconciliation_items ADD COLUMN old_target_proof_version TEXT")
+            database.execSQL("""
+                UPDATE mirror_reconciliation_items
+                SET old_target_profile_id = profile_id,
+                    old_target_account_identity = account_identity,
+                    old_target_device_id = device_id,
+                    old_target_device_label_id = (SELECT device_label_id FROM mirror_reconciliation_runs r WHERE r.run_id = mirror_reconciliation_items.run_id),
+                    old_target_android_thread_id = android_thread_id,
+                    old_target_gmail_message_id = prior_gmail_message_id,
+                    old_target_snapshot_hash = expected_remote_snapshot_hash,
+                    old_target_proof_version = 'V8_EXACT_ID_HASH_BINDING'
+                WHERE prior_gmail_message_id IS NOT NULL
+                  AND expected_remote_snapshot_hash IS NOT NULL
+                  AND android_thread_id IS NOT NULL
+            """.trimIndent())
+        }
+    }
     @Volatile
     private var instance: BackupDatabase? = null
 
@@ -292,7 +321,8 @@ object DatabaseProvider {
                             MIGRATION_4_5,
                             MIGRATION_5_6,
                             MIGRATION_6_7,
-                            MIGRATION_7_8
+                            MIGRATION_7_8,
+                            MIGRATION_8_9
                         )
                         .build()
                         .also { database ->

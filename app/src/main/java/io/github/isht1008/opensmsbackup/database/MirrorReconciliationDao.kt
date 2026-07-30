@@ -30,6 +30,18 @@ interface MirrorReconciliationDao {
     @Query("SELECT * FROM mirror_reconciliation_runs WHERE run_id = :runId LIMIT 1")
     suspend fun findRun(runId: String): MirrorReconciliationRunEntity?
 
+    @Query("""
+        SELECT * FROM mirror_reconciliation_runs
+        WHERE status = :status AND local_conversations = :localCount
+          AND replace_changed_count = :replacementCount
+        ORDER BY created_at DESC LIMIT 1
+    """)
+    suspend fun findResumableRunForAudit(
+        status: String,
+        localCount: Int,
+        replacementCount: Int
+    ): MirrorReconciliationRunEntity?
+
     @Query("SELECT * FROM mirror_reconciliation_items WHERE run_id = :runId AND item_id = :itemId LIMIT 1")
     suspend fun findItem(runId: String, itemId: String): MirrorReconciliationItemEntity?
 
@@ -73,7 +85,7 @@ interface MirrorReconciliationDao {
     """)
     suspend fun failConfirmedForegroundStartIfAllPending(runId: String, profileId: String, completedAt: Long): Int
 
-    @Query("UPDATE mirror_reconciliation_items SET state = :state, attempts = attempts + :incrementAttempts, resulting_gmail_message_id = :resultingId, warning_category = :warning, failure_category = :failure, completed_at = :completedAt WHERE run_id = :runId AND item_id = :itemId AND profile_id = :profileId")
+    @Query("UPDATE mirror_reconciliation_items SET state = :state, attempts = attempts + :incrementAttempts, resulting_gmail_message_id = COALESCE(:resultingId, resulting_gmail_message_id), warning_category = :warning, failure_category = :failure, completed_at = :completedAt WHERE run_id = :runId AND item_id = :itemId AND profile_id = :profileId")
     suspend fun updateItem(
         runId: String,
         itemId: String,

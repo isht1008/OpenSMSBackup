@@ -13,8 +13,39 @@ enum class FullMirrorFailureCategory {
     EMAIL_LIKE_SENDER, GROUP_MULTI_RECIPIENT, INVALID_THREAD_ID, DUPLICATE_LOCAL_IDENTITY,
     DUPLICATE_REMOTE_IDENTITY, AMBIGUOUS_LEGACY_IDENTITY, MISSING_OWNERSHIP_HEADER,
     FORMAT_VERSION_MISMATCH, UNSUPPORTED_IDENTITY_VERSION, CACHED_ROOM_MISMATCH,
-    LIMIT_EXCEEDED, FOREGROUND_START_FAILED, OTHER
+    LIMIT_EXCEEDED, FOREGROUND_START_FAILED, OLD_TARGET_PROOF_MISSING,
+    OLD_TARGET_MISSING, OLD_TARGET_AMBIGUOUS, REPLACEMENT_NOT_PERSISTED,
+    DUPLICATE_REPLACEMENT, UNEXPLAINED_REMOTE_CHANGE, OTHER
 }
+
+data class FullMirrorOldTargetProof(
+    val profileId: String,
+    val accountIdentity: String,
+    val deviceId: String,
+    val deviceLabelId: String,
+    val androidThreadId: Long,
+    val gmailMessageId: String,
+    val snapshotHash: String,
+    val conversationKeyHeader: String? = null,
+    val identityVersionHeader: String? = null,
+    val formatVersionHeader: String? = null,
+    val proofVersion: String = PROOF_VERSION
+) {
+    fun isCompleteFor(binding: FullMirrorBinding, item: FullMirrorPreviewItem): Boolean =
+        profileId == binding.profileId && accountIdentity.equals(binding.accountIdentity, true) &&
+            deviceId == binding.deviceId && deviceLabelId == binding.deviceLabelId &&
+            androidThreadId > 0L && androidThreadId == item.androidThreadId &&
+            gmailMessageId.isNotBlank() && gmailMessageId == item.priorGmailMessageId &&
+            snapshotHash.isNotBlank() && snapshotHash == item.expectedRemoteSnapshotHash &&
+            proofVersion in setOf(PROOF_VERSION, V8_COMPAT_VERSION)
+
+    companion object {
+        const val PROOF_VERSION = "IMMUTABLE_OLD_TARGET_V1"
+        const val V8_COMPAT_VERSION = "V8_EXACT_ID_HASH_BINDING"
+    }
+}
+
+enum class FullMirrorOldTargetStatus { PRESENT_VALID, ALREADY_TRASHED_VALID, MISSING, AMBIGUOUS, INVALID }
 
 data class FullMirrorBinding(
     val runId: String,
@@ -45,7 +76,10 @@ data class OwnedRemoteSnapshot(
     val duplicateCount: Int = 1,
     val cacheMatches: Boolean = false,
     val identityCurrent: Boolean = true,
-    val reason: FullMirrorFailureCategory = FullMirrorFailureCategory.NONE
+    val reason: FullMirrorFailureCategory = FullMirrorFailureCategory.NONE,
+    val ownershipConversationKeyHeader: String? = null,
+    val identityVersionHeader: String? = null,
+    val formatVersionHeader: String? = null
 )
 
 data class FullMirrorPreviewItem(
@@ -56,7 +90,9 @@ data class FullMirrorPreviewItem(
     val expectedLocalSourceHash: String?,
     val expectedRemoteSnapshotHash: String?,
     val priorGmailMessageId: String?,
-    val reason: FullMirrorFailureCategory = FullMirrorFailureCategory.NONE
+    val reason: FullMirrorFailureCategory = FullMirrorFailureCategory.NONE,
+    val oldTargetProof: FullMirrorOldTargetProof? = null,
+    val resultingGmailMessageId: String? = null
 )
 
 data class FullMirrorPreview(

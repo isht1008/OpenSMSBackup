@@ -110,7 +110,10 @@ class FullMirrorPreviewService(private val context: Context) {
             }
             remotes += OwnedRemoteSnapshot(
                 mirrorKey, reference.messageId, ConversationSnapshotHashGenerator.generate(document.conversation), threadId,
-                currentOwned || legacyOwned, true, cacheMatches = cacheMatches, identityCurrent = currentIdentity, reason = reason
+                currentOwned || legacyOwned, true, cacheMatches = cacheMatches, identityCurrent = currentIdentity, reason = reason,
+                ownershipConversationKeyHeader = reference.conversationKeyHeader,
+                identityVersionHeader = reference.identityVersionHeader,
+                formatVersionHeader = reference.formatVersionHeader
             )
         }
         val preview = FullMirrorPreviewPlanner.create(binding, local, remotes, foreignIgnored, device.defaultRegion, now, discoveryReasons)
@@ -139,7 +142,18 @@ class FullMirrorPreviewService(private val context: Context) {
                 preview.binding.runId, item.itemId, preview.binding.profileId, preview.binding.accountIdentity,
                 preview.binding.deviceId, item.conversationKey, item.androidThreadId, item.action.name,
                 item.expectedLocalSourceHash, item.expectedRemoteSnapshotHash, item.priorGmailMessageId,
-                FullMirrorItemState.PENDING.name, failureCategory = item.reason.takeUnless { it == FullMirrorFailureCategory.NONE }?.name
+                FullMirrorItemState.PENDING.name, failureCategory = item.reason.takeUnless { it == FullMirrorFailureCategory.NONE }?.name,
+                oldTargetProfileId = item.oldTargetProof?.profileId,
+                oldTargetAccountIdentity = item.oldTargetProof?.accountIdentity,
+                oldTargetDeviceId = item.oldTargetProof?.deviceId,
+                oldTargetDeviceLabelId = item.oldTargetProof?.deviceLabelId,
+                oldTargetAndroidThreadId = item.oldTargetProof?.androidThreadId,
+                oldTargetGmailMessageId = item.oldTargetProof?.gmailMessageId,
+                oldTargetSnapshotHash = item.oldTargetProof?.snapshotHash,
+                oldTargetConversationKeyHeader = item.oldTargetProof?.conversationKeyHeader,
+                oldTargetIdentityVersionHeader = item.oldTargetProof?.identityVersionHeader,
+                oldTargetFormatVersionHeader = item.oldTargetProof?.formatVersionHeader,
+                oldTargetProofVersion = item.oldTargetProof?.proofVersion
             )
         }
         database.mirrorReconciliationDao().insertPreview(run, items)

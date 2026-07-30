@@ -6,7 +6,8 @@ import kotlinx.coroutines.ensureActive
 interface FullMirrorMutationGateway {
     suspend fun validateBinding(binding: FullMirrorBinding): Boolean
     suspend fun currentLocalSourceHash(item: FullMirrorPreviewItem): String?
-    suspend fun validateOwnedRemote(binding: FullMirrorBinding, item: FullMirrorPreviewItem): Boolean
+    suspend fun inspectOldTarget(binding: FullMirrorBinding, item: FullMirrorPreviewItem): FullMirrorOldTargetStatus
+    suspend fun validatePersistedReplacement(binding: FullMirrorBinding, item: FullMirrorPreviewItem, resultingMessageId: String): Boolean
     suspend fun upload(item: FullMirrorPreviewItem): String
     suspend fun persistUploaded(item: FullMirrorPreviewItem, resultingMessageId: String)
     suspend fun trashOwned(messageId: String)
@@ -61,7 +62,7 @@ class FullMirrorExecutor(
                         journal.mark(item.itemId, FullMirrorItemState.COMPLETED); completed++
                     }
                     FullMirrorAction.RECOVER_CACHE -> {
-                        if (!gateway.validateOwnedRemote(preview.binding, item)) error("OWNERSHIP")
+                        if (gateway.inspectOldTarget(preview.binding, item) != FullMirrorOldTargetStatus.PRESENT_VALID) error("OWNERSHIP")
                         gateway.recoverCache(item)
                         journal.mark(item.itemId, FullMirrorItemState.COMPLETED); completed++
                     }
@@ -80,11 +81,11 @@ class FullMirrorExecutor(
                         newUploaded++; completed++
                     }
                     FullMirrorAction.REPLACE_CHANGED -> {
-                        validateLocal(item)
                         val previousId = requireNotNull(item.priorGmailMessageId)
-                        if (!gateway.validateOwnedRemote(preview.binding, item)) error("OWNERSHIP")
-                        var result: String? = null
+                        var result: String? = item.resultingGmailMessageId
                         if (state !in setOf(FullMirrorItemState.PERSISTED, FullMirrorItemState.TRASH_PENDING, FullMirrorItemState.WARNING)) {
+                            validateLocal(item)
+                            if (gateway.inspectOldTarget(preview.binding, item) != FullMirrorOldTargetStatus.PRESENT_VALID) error("OWNERSHIP")
                             journal.mark(item.itemId, FullMirrorItemState.UPLOADING)
                             result = gateway.upload(item)
                             gateway.persistUploaded(item, result)
@@ -92,24 +93,45 @@ class FullMirrorExecutor(
                             state = FullMirrorItemState.TRASH_PENDING
                         }
                         try {
-                            if (!gateway.validateOwnedRemote(preview.binding, item)) error("OWNERSHIP")
+                            val persistedId = requireNotNull(result)
+                            if (persistedId == previousId ||
+                                !gateway.validatePersistedReplacement(preview.binding, item, persistedId)
+                            ) error("REPLACEMENT_NOT_PERSISTED")
+                            when (gateway.inspectOldTarget(preview.binding, item)) {
+                                FullMirrorOldTargetStatus.PRESENT_VALID -> {
+                                    currentCoroutineContext().ensureActive()
+                                    gateway.trashOwned(previousId)
+                                }
+                                FullMirrorOldTargetStatus.ALREADY_TRASHED_VALID -> Unit
+                                FullMirrorOldTargetStatus.MISSING -> error("OLD_TARGET_MISSING")
+                                FullMirrorOldTargetStatus.AMBIGUOUS -> error("OLD_TARGET_AMBIGUOUS")
+                                FullMirrorOldTargetStatus.INVALID -> error("OWNERSHIP")
+                            }
                             currentCoroutineContext().ensureActive()
-                            currentCoroutineContext().ensureActive()
-                        gateway.trashOwned(previousId)
                             journal.mark(item.itemId, FullMirrorItemState.COMPLETED, result)
                             replaced++; previousTrashed++; completed++
                         } catch (error: Throwable) {
                             if (error is kotlinx.coroutines.CancellationException) throw error
-                            journal.mark(item.itemId, FullMirrorItemState.WARNING, result, FullMirrorFailureCategory.TRASH)
+                            val warning = when (error.message) {
+                                "REPLACEMENT_NOT_PERSISTED" -> FullMirrorFailureCategory.REPLACEMENT_NOT_PERSISTED
+                                "OLD_TARGET_MISSING" -> FullMirrorFailureCategory.OLD_TARGET_MISSING
+                                "OLD_TARGET_AMBIGUOUS" -> FullMirrorFailureCategory.OLD_TARGET_AMBIGUOUS
+                                "OWNERSHIP" -> FullMirrorFailureCategory.OWNERSHIP
+                                else -> FullMirrorFailureCategory.TRASH
+                            }
+                            journal.mark(item.itemId, FullMirrorItemState.WARNING, result, warning)
                             warnings++
                         }
                     }
                     FullMirrorAction.TRASH_REMOTE_ONLY -> {
                         val previousId = requireNotNull(item.priorGmailMessageId)
-                        if (!gateway.validateOwnedRemote(preview.binding, item)) error("OWNERSHIP")
+                        val oldStatus = gateway.inspectOldTarget(preview.binding, item)
+                        if (oldStatus !in setOf(FullMirrorOldTargetStatus.PRESENT_VALID, FullMirrorOldTargetStatus.ALREADY_TRASHED_VALID)) error("OWNERSHIP")
                         journal.mark(item.itemId, FullMirrorItemState.TRASH_PENDING)
-                        currentCoroutineContext().ensureActive()
-                        gateway.trashOwned(previousId)
+                        if (oldStatus == FullMirrorOldTargetStatus.PRESENT_VALID) {
+                            currentCoroutineContext().ensureActive()
+                            gateway.trashOwned(previousId)
+                        }
                         gateway.persistRemoteOnlyRemoval(item)
                         journal.mark(item.itemId, FullMirrorItemState.COMPLETED)
                         remoteOnlyTrashed++; completed++

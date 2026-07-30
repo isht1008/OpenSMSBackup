@@ -89,6 +89,27 @@ class FullMirrorPreviewPlannerTest {
         assertEquals(0, preview.trashCount)
     }
 
+    @Test fun replacementCapturesImmutableOldTargetProofBeforeExecution() {
+        val local = conversation(7, "sender", "new")
+        val old = remote(conversation(7, "sender", "old"), "old-id").copy(
+            ownershipConversationKeyHeader = "legacy-key",
+            identityVersionHeader = "3",
+            formatVersionHeader = "3"
+        )
+        val item = FullMirrorPreviewPlanner.create(binding, complete(local), listOf(old), 0, "US", 1).items.single()
+        val proof = requireNotNull(item.oldTargetProof)
+        assertEquals(binding.profileId, proof.profileId)
+        assertEquals(binding.accountIdentity, proof.accountIdentity)
+        assertEquals(binding.deviceId, proof.deviceId)
+        assertEquals(binding.deviceLabelId, proof.deviceLabelId)
+        assertEquals(7L, proof.androidThreadId)
+        assertEquals("old-id", proof.gmailMessageId)
+        assertEquals(old.snapshotHash, proof.snapshotHash)
+        assertEquals("legacy-key", proof.conversationKeyHeader)
+        assertEquals("3", proof.identityVersionHeader)
+        assertEquals("3", proof.formatVersionHeader)
+    }
+
     internal fun complete(vararg c: SmsConversationSnapshot) = CompleteLocalSmsDataset(c.toList(), c.sumOf { it.messageCount }, true, true)
     internal fun remote(c: SmsConversationSnapshot, id: String, cache: Boolean = false, current: Boolean = true) = OwnedRemoteSnapshot(
         MirrorConversationIdentity.key(binding.profileId, binding.accountIdentity, binding.deviceId, c.threadId), id,

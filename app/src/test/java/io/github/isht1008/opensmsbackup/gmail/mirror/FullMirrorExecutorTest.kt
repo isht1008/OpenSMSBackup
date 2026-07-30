@@ -10,7 +10,7 @@ class FullMirrorExecutorTest {
         val item = item(FullMirrorAction.REPLACE_CHANGED, "old")
         val journal = Journal()
         val summary = FullMirrorExecutor(Gateway(events), journal).execute(preview(item))
-        assertEquals(listOf("binding", "binding", "local", "ownership", "upload", "persist", "ownership", "trash:old"), events)
+        assertEquals(listOf("binding", "binding", "local", "ownership", "upload", "persist", "persisted-check", "ownership", "trash:old"), events)
         assertEquals(1, summary.changedReplaced)
         assertEquals(1, summary.previousTrashed)
     }
@@ -24,6 +24,19 @@ class FullMirrorExecutorTest {
         assertFalse(persistEvents.any { it.startsWith("trash") })
     }
 
+    @Test fun cancellationBeforeTrashPreservesOldTarget() = runBlocking {
+        val events = mutableListOf<String>()
+        try {
+            FullMirrorExecutor(
+                Gateway(events, cancelBeforeTrash = true),
+                Journal()
+            ).execute(preview(item(FullMirrorAction.REPLACE_CHANGED, "old")))
+            fail("Expected cancellation")
+        } catch (_: kotlinx.coroutines.CancellationException) {
+            assertFalse(events.any { it.startsWith("trash:") })
+        }
+    }
+
     @Test fun `Trash failure leaves persisted replacement warning and resume performs Trash only`() = runBlocking {
         val journal = Journal()
         val firstEvents = mutableListOf<String>()
@@ -32,10 +45,69 @@ class FullMirrorExecutorTest {
         assertEquals(1, first.warnings)
         assertTrue(firstEvents.contains("persist"))
         val secondEvents = mutableListOf<String>()
-        FullMirrorExecutor(Gateway(secondEvents), journal).execute(preview(item))
+        FullMirrorExecutor(Gateway(secondEvents), journal).execute(preview(item.copy(resultingGmailMessageId = "new")))
         assertFalse(secondEvents.contains("upload"))
         assertFalse(secondEvents.contains("persist"))
         assertTrue(secondEvents.contains("trash:old"))
+    }
+
+    @Test fun alreadyTrashedReplacementCompletesWithoutDuplicateTrashRequest() = runBlocking {
+        val item = item(FullMirrorAction.REPLACE_CHANGED, "old").copy(resultingGmailMessageId = "new")
+        val journal = Journal(mutableMapOf("item" to FullMirrorItemState.WARNING))
+        val events = mutableListOf<String>()
+        val summary = FullMirrorExecutor(
+            Gateway(events, oldStatus = FullMirrorOldTargetStatus.ALREADY_TRASHED_VALID),
+            journal
+        ).execute(preview(item))
+        assertEquals(1, summary.changedReplaced)
+        assertFalse(events.any { it.startsWith("trash:") })
+        assertFalse(events.contains("upload"))
+    }
+
+    @Test fun missingOrAmbiguousOldTargetRemainsWarningWithoutUploadOrTrash() = runBlocking {
+        for (status in listOf(FullMirrorOldTargetStatus.MISSING, FullMirrorOldTargetStatus.AMBIGUOUS)) {
+            val item = item(FullMirrorAction.REPLACE_CHANGED, "old").copy(resultingGmailMessageId = "new")
+            val events = mutableListOf<String>()
+            val summary = FullMirrorExecutor(
+                Gateway(events, oldStatus = status),
+                Journal(mutableMapOf("item" to FullMirrorItemState.WARNING))
+            ).execute(preview(item))
+            assertEquals(1, summary.warnings)
+            assertFalse(events.contains("upload"))
+            assertFalse(events.any { it.startsWith("trash:") })
+        }
+    }
+
+    @Test fun unprovenPersistedReplacementIsNeverReuploadedOrTrashed() = runBlocking {
+        val resumed = item(FullMirrorAction.REPLACE_CHANGED, "old").copy(resultingGmailMessageId = "new")
+        val events = mutableListOf<String>()
+        val summary = FullMirrorExecutor(
+            Gateway(events, persistedValid = false),
+            Journal(mutableMapOf("item" to FullMirrorItemState.WARNING))
+        ).execute(preview(resumed))
+        assertEquals(1, summary.warnings)
+        assertFalse(events.contains("upload"))
+        assertFalse(events.any { it.startsWith("trash:") })
+    }
+
+    @Test fun elevenPersistedWarningsResumeAsExactlyElevenTrashOnlyActions() = runBlocking {
+        val items = (1..11).map { index ->
+            item(FullMirrorAction.REPLACE_CHANGED, "old-$index").copy(
+                itemId = "item-$index",
+                conversationKey = "key-$index",
+                androidThreadId = index.toLong(),
+                resultingGmailMessageId = "new-$index"
+            )
+        }
+        val journal = Journal(items.associate { it.itemId to FullMirrorItemState.WARNING }.toMutableMap())
+        val events = mutableListOf<String>()
+        val base = preview(items.first())
+        val summary = FullMirrorExecutor(Gateway(events), journal).execute(
+            base.copy(localConversations = 11, ownedRemoteConversations = 11, remoteCandidates = 11, items = items)
+        )
+        assertEquals(11, summary.changedReplaced)
+        assertEquals(11, events.count { it.startsWith("trash:") })
+        assertEquals(0, events.count { it == "upload" })
     }
 
     @Test fun `remote-only requires ownership before recoverable Trash and never exposes delete API`() = runBlocking {
@@ -64,7 +136,9 @@ class FullMirrorExecutorTest {
         val gateway = object : FullMirrorMutationGateway {
             override suspend fun validateBinding(binding: FullMirrorBinding) = true.also { events += "binding" }
             override suspend fun currentLocalSourceHash(item: FullMirrorPreviewItem) = "local"
-            override suspend fun validateOwnedRemote(binding: FullMirrorBinding, item: FullMirrorPreviewItem) = false.also { events += "ownership" }
+            override suspend fun inspectOldTarget(binding: FullMirrorBinding, item: FullMirrorPreviewItem) =
+                FullMirrorOldTargetStatus.INVALID.also { events += "ownership" }
+            override suspend fun validatePersistedReplacement(binding: FullMirrorBinding, item: FullMirrorPreviewItem, resultingMessageId: String) = true
             override suspend fun upload(item: FullMirrorPreviewItem) = error("unexpected upload")
             override suspend fun persistUploaded(item: FullMirrorPreviewItem, resultingMessageId: String) = Unit
             override suspend fun trashOwned(messageId: String) { events += "trash" }
@@ -98,11 +172,22 @@ class FullMirrorExecutorTest {
     }
     private class Gateway(
         val events: MutableList<String>, val failUpload: Boolean = false,
-        val failPersist: Boolean = false, val failTrash: Boolean = false
+        val failPersist: Boolean = false, val failTrash: Boolean = false,
+        val oldStatus: FullMirrorOldTargetStatus = FullMirrorOldTargetStatus.PRESENT_VALID,
+        val persistedValid: Boolean = true,
+        val cancelBeforeTrash: Boolean = false
     ) : FullMirrorMutationGateway {
+        private var ownershipChecks = 0
         override suspend fun validateBinding(binding: FullMirrorBinding) = true.also { events += "binding" }
         override suspend fun currentLocalSourceHash(item: FullMirrorPreviewItem) = "local".also { events += "local" }
-        override suspend fun validateOwnedRemote(binding: FullMirrorBinding, item: FullMirrorPreviewItem) = true.also { events += "ownership" }
+        override suspend fun inspectOldTarget(binding: FullMirrorBinding, item: FullMirrorPreviewItem): FullMirrorOldTargetStatus {
+            ownershipChecks++
+            events += "ownership"
+            if (cancelBeforeTrash && ownershipChecks == 2) throw kotlinx.coroutines.CancellationException("fixture")
+            return oldStatus
+        }
+        override suspend fun validatePersistedReplacement(binding: FullMirrorBinding, item: FullMirrorPreviewItem, resultingMessageId: String) =
+            persistedValid.also { events += "persisted-check" }
         override suspend fun upload(item: FullMirrorPreviewItem): String { events += "upload"; if (failUpload) error("upload"); return "new" }
         override suspend fun persistUploaded(item: FullMirrorPreviewItem, resultingMessageId: String) { events += "persist"; if (failPersist) error("persist") }
         override suspend fun trashOwned(messageId: String) { events += "trash:$messageId"; if (failTrash) error("trash") }

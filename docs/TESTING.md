@@ -38,7 +38,7 @@ Before handoff run `git status`, inspect `git diff`, run the relevant build/test
 
 **Implemented automated coverage:** preview classification, incomplete/empty scans, ambiguous identities, duplicate/foreign ownership rejection, Account A/B key isolation, expiry and typed confirmation, high-risk Trash threshold, remote fingerprint staleness, upload/persist/Trash ordering, ambiguous upload non-repeat, Trash-only resume, ownership-failure stop, scalar immutable WorkManager data, account masking, and Room 7-to-8 migration compilation.
 
-**Planned physical dual-account test:**
+**Implemented physical dual-account production validation:**
 
 1. Configure Account A as Archive and Account B as Mirror; record both masked identities and independent policies.
 2. Select Account B and request Full Mirror Preview. Verify the preview names masked Account B once and says Archive account is not affected.
@@ -52,6 +52,8 @@ Before handoff run `git status`, inspect `git diff`, run the relevant build/test
 10. Capture only aggregate `OpenSMSBackup` diagnostics; never record account identities, message contents, tokens, hashes, or full Gmail IDs.
 
 Do not automate this test because confirmation is intentionally user initiated and Gmail-mutating.
+
+The production run conserved 3,332 conversations as 9 unchanged, 3,311 new uploads, and 12 replacements. The initial foreground-service failure occurred before mutation and was corrected by explicitly using the `dataSync` foreground type. The first full execution persisted all 3,323 upload results; one replacement cleanup completed and 11 old targets remained intact after a post-persistence ownership warning. After the immutable old-target proof and journal-aware resume correction, one manual safe resume performed exactly 11 ownership-validated recoverable Trash moves with zero uploads, warnings, failures, remaining work, Account A operations, or permanent deletions. All 3,332 journal items finished `COMPLETED`, with 3,323 distinct persisted Gmail IDs and no duplicates. Aggregate evidence is retained outside Git.
 
 ## Mirror-thread preview regression coverage
 

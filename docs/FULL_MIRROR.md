@@ -1,6 +1,6 @@
 # Full Mirror synchronization
 
-Status: **Implemented** on `feature/full-mirror-sync`.
+Status: **Implemented** and physically validated in production on `feature/full-mirror-sync`.
 
 Full Mirror is a preview-confirm-execute workflow for one immutable Gmail profile. A preview captures `runId`, `profileId`, normalized account identity, installation/device ID, cached device-label ID, expected Mirror policy, local and remote fingerprints, expiry, counts, and per-conversation actions. Preview creation is read-only. Execution is permitted only after the persisted plan is confirmed and every binding is revalidated.
 
@@ -18,14 +18,14 @@ Only the exact Account B device-label namespace is indexed, with a 100,000-owned
 4. Persist a 15-minute preview and immutable per-item journal.
 5. Show counts, estimates, warnings, masked Account B, and an explicit statement that Archive is unaffected.
 6. Require typed `MIRROR <trash-count>` when Trash moves are proposed.
-7. Revalidate profile, account, device, policy, label, local fingerprint, and remote fingerprint before mutation and binding before each item.
-8. Execute upload -> persist -> ownership validation -> Trash for replacements. Remote-only items require ownership validation before Trash. Never Trash after upload or persistence failure.
+7. Revalidate profile, account, device, policy, label, local fingerprint, and remote state before mutation and binding before each item. Initial execution uses the approved pre-execution fingerprint; resume reconciles only changes proven by the same journal and rejects unexplained additions, removals, duplicates, or scoped errors.
+8. Execute upload -> persist -> exact old-target re-fetch -> immutable ownership revalidation -> recoverable Trash for replacements. The persisted replacement must match the current profile-scoped Room row, while the superseded target is authorized independently by proof captured before upload. Remote-only items require ownership validation before Trash. Never Trash after upload or persistence failure.
 
-A cancellation stops before the next mutation boundary. Completed journal items are skipped on resume. A replacement whose upload acceptance is ambiguous is not uploaded automatically again. A Trash failure after a persisted replacement is resumable as Trash-only. Ownership failures stop later destructive actions.
+A cancellation stops before the next mutation boundary. Completed journal items are skipped on resume. A replacement whose upload acceptance is ambiguous is not uploaded automatically again. A Trash failure after a persisted replacement is resumable as Trash-only and never re-uploads the replacement. An exact owned old target already in Trash completes idempotently without another Trash request; missing, ambiguous, foreign, or ownership-invalid targets remain blocked. Ownership failures stop later destructive actions.
 
 ## Persistence and recovery
 
-Room version 8 adds explicit 7-to-8 migration, profile-scoped snapshot ownership, reconciliation runs, and per-item journals. No destructive migration fallback is used. Preview/work state contains scalar metadata only; no SMS content, Gmail content, tokens, full Gmail IDs, or unmasked accounts are placed in progress/output.
+Room version 8 added explicit 7-to-8 migration, profile-scoped snapshot ownership, reconciliation runs, and per-item journals. Room version 9 adds immutable superseded-target proof to each applicable journal item and explicitly migrates existing version-8 replacement warnings without rewriting the plan or completed work. No destructive migration fallback is used. Preview/work state contains scalar metadata only; no SMS content, Gmail content, tokens, full Gmail IDs, or unmasked accounts are placed in progress/output.
 
 Changing a profile's policy invalidates only that profile's pending previews. Active Full Mirror work blocks other Gmail mutations and profile disconnect/revoke/policy changes for that same profile. The implementation deliberately serializes Gmail mutation work across profiles to prevent credential/context overlap.
 
@@ -34,7 +34,8 @@ Changing a profile's policy invalidates only that profile's pending previews. Ac
 - **Implemented:** preview, typed confirmation, bounded account/device indexing, execution journal, cancellation, safe resume, aggregate progress, and recoverable Trash.
 - **Partially implemented:** duration estimates are action-based and become available after completed samples; network variability can make them approximate.
 - **Deferred:** permanent deletion, foreign-snapshot adoption, conflict auto-resolution, and concurrent cross-account Gmail mutations.
-- **Planned:** physical dual-account validation using the procedure in `docs/TESTING.md`.
+- **Implemented:** production physical dual-account validation using the procedure in `docs/TESTING.md`.
+- **Planned:** verification history should mask the account address currently shown in its historical result UI. This is a presentation/privacy issue and did not affect Full Mirror ownership or execution.
 ## Mirror thread identity and legacy compatibility
 
 **Implemented:** `mirror-thread-v1` is the only identity written by new Full Mirror and Recent-10 Mirror uploads. The opaque key includes immutable profile/account/device ownership and Android thread ID. It does not expose raw thread ID, address, contact, or account data. Same threads across accounts/devices differ; different thread IDs differ.
@@ -42,3 +43,13 @@ Changing a profile's policy invalidates only that profile's pending previews. Ac
 Existing owned Mirror snapshots using identity version 2 or 3 are not claimed by address or hash. They become controlled replacement candidates only when the Account B profile-scoped Room cache points to that exact Gmail message and the document validates account, device, label, legacy identity, and thread correspondence. The replacement follows upload -> persist -> ownership revalidation -> recoverable Trash. Ambiguous or uncached legacy snapshots block execution.
 
 **Implemented:** the preview separately conserves local and remote classifications and supports 10,000 candidates per side. Larger datasets receive an explicit `LIMIT_EXCEEDED` block with no truncation. Blocked previews hide typed confirmation and show only Close plus aggregate reasons.
+
+## Production physical validation
+
+**Implemented:** The first production plan classified 3,332 local conversations as 9 unchanged, 3,311 new uploads, and 12 replacements, with no remote-only Trash candidates, conflicts, unreadable items, or scan errors. An initial foreground-service start failed before execution because the worker had not explicitly declared the `dataSync` foreground type. The failed plan remained terminal and non-executable and performed zero Gmail uploads, zero Trash moves, and zero Account A operations. The corrected build explicitly used `FOREGROUND_SERVICE_TYPE_DATA_SYNC` and passed in-place installation and startup checks.
+
+The first complete execution uploaded and persisted all 3,311 new snapshots and all 12 replacement snapshots. One replacement then completed its recoverable Trash step. The other 11 produced deterministic post-persistence ownership warnings because the old predicate incorrectly required the mutable Room cache pointer to remain on the superseded Gmail message after persistence had correctly advanced it to the replacement. Audit proved that all 12 replacements matched Room, the remaining 11 old targets were intact and had not received a Trash request, there were no duplicate or ambiguous uploads, and Account A had no reads or mutations.
+
+The correction separates the immutable proof for the superseded target from the current Room pointer for the replacement. Resume first reconciles journal-attributable remote changes, validates all persisted replacements, re-fetches each exact old target, revalidates its immutable account/device/label/thread/identity/hash proof, checks cancellation, and performs only recoverable Trash cleanup. The physical safe resume ran once as WorkManager attempt 1 with `DATA_SYNC`, attempted zero uploads, independently ownership-validated 11 old targets, completed 11 recoverable Trash moves, and required no reschedule.
+
+Final production result: 3,332 of 3,332 journal items completed; 9 unchanged; 3,311 new uploads; 12 replacements; 3,323 distinct persisted Gmail IDs; 12 superseded snapshots in recoverable Trash; zero remote-only Trash moves; zero duplicates, warnings, failures, remaining items, Account A operations, or permanent deletions. The app process remained stable with no fatal, foreground-service, Room, SQLite, or schema errors. Aggregate diagnostic evidence is stored outside Git and intentionally contains no repository source or committed private data. Production Full Mirror physical execution is complete.

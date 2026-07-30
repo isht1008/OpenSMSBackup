@@ -70,4 +70,4 @@ OpenSMSBackup v1 is backup-only and does not act as the default messaging applic
 
 ## Full Mirror identity compatibility
 
-**Implemented:** Mirror-thread identity, sender-type support, classification conservation, bounded 10,000-item plans, aggregate reason diagnostics, blocked-preview controls, and controlled cached-legacy replacement. **Planned:** second physical read-only preview and aggregate reason review before any Full Mirror execution.
+**Implemented:** Mirror-thread identity, sender-type support, classification conservation, bounded 10,000-item plans, aggregate reason diagnostics, blocked-preview controls, controlled cached-legacy replacement, production physical execution, and journal-safe Trash-only recovery. The validated production plan completed all 3,332 items with Account A isolated and no permanent deletion.
