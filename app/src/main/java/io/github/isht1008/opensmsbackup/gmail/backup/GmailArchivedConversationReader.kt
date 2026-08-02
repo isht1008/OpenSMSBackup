@@ -93,10 +93,10 @@ class GmailArchivedConversationReader(
                         threadId = message.threadId,
                         internalDate = message.internalDate ?: 0L,
                         accountEmail = parsed.accountEmail,
-                        conversationKeyHeader = message.payload?.headers
-                            ?.firstOrNull {
-                                it.name.equals(OpenSmsHeaders.CONVERSATION_KEY, ignoreCase = true)
-                            }?.value,
+                        conversationKeyHeader = header(
+                            message.payload,
+                            OpenSmsHeaders.CONVERSATION_KEY
+                        ),
                         conversation = parsed.conversation,
                         deviceIdHeader = header(message.payload, OpenSmsHeaders.DEVICE_ID),
                         identityVersionHeader = header(
@@ -170,14 +170,16 @@ class GmailArchivedConversationReader(
     override suspend fun readMetadataPage(
         messageIds: List<String>
     ): List<GmailArchiveMetadataReference> = coroutineScope {
-        val semaphore = Semaphore(metadataConcurrency)
-        messageIds.mapIndexed { position, messageId ->
-            async(Dispatchers.IO) {
-                semaphore.withPermit {
-                    position to readMetadata(messageId)
+        val result = mutableListOf<Pair<Int, GmailArchiveMetadataReference?>>()
+        GmailMetadataBatching.batches(messageIds.withIndex().toList(), metadataConcurrency)
+            .forEach { batch ->
+            result += batch.map { indexed ->
+                async(Dispatchers.IO) {
+                    indexed.index to readMetadata(indexed.value)
                 }
-            }
-        }.awaitAll()
+            }.awaitAll()
+        }
+        result
             .sortedBy { it.first }
             .mapNotNull { it.second }
     }
@@ -212,7 +214,10 @@ class GmailArchivedConversationReader(
                     message.payload,
                     OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION
                 ),
-                formatVersionHeader = header(message.payload, OpenSmsHeaders.VERSION)
+                formatVersionHeader = header(message.payload, OpenSmsHeaders.VERSION),
+                androidThreadIdHeader = header(message.payload, OpenSmsHeaders.THREAD_ID)
+                    ?.toLongOrNull(),
+                snapshotHashHeader = header(message.payload, OpenSmsHeaders.SNAPSHOT_HASH)
             )
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -253,7 +258,7 @@ class GmailArchivedConversationReader(
     }
 
     private fun header(part: MessagePart?, name: String): String? =
-        part?.headers?.firstOrNull { it.name.equals(name, ignoreCase = true) }?.value
+        GmailArchiveHeaderReader.uniqueValue(part, name)
 
     private fun mapReadFailure(error: Exception): Throwable {
         if (error is GmailOperationException && error.failure.httpStatusCode == 404) {
@@ -283,7 +288,24 @@ class GmailArchivedConversationReader(
             OpenSmsHeaders.DEVICE_ID,
             OpenSmsHeaders.CONVERSATION_KEY,
             OpenSmsHeaders.ARCHIVE_IDENTITY_VERSION,
-            OpenSmsHeaders.VERSION
+            OpenSmsHeaders.VERSION,
+            OpenSmsHeaders.THREAD_ID,
+            OpenSmsHeaders.SNAPSHOT_HASH
         )
+    }
+}
+
+internal object GmailArchiveHeaderReader {
+    fun uniqueValue(part: MessagePart?, name: String): String? {
+        val matches = part?.headers.orEmpty()
+            .filter { it.name.equals(name, ignoreCase = true) }
+        return matches.singleOrNull()?.value
+    }
+}
+
+object GmailMetadataBatching {
+    fun <T> batches(items: List<T>, maximumScheduled: Int): List<List<T>> {
+        require(maximumScheduled > 0)
+        return items.chunked(maximumScheduled)
     }
 }

@@ -186,6 +186,55 @@ class BackupDatabaseMigrationTest {
             }
         }
     }
+
+    @Test fun migration9To10PreservesAccountsCacheAndCompletedMirrorJournal() {
+        val name = "migration-9-10"
+        helper.createDatabase(name, 9).apply {
+            execSQL("INSERT INTO account_profiles (profile_id, provider_account_id, account_email, display_name, photo_url, connection_state, created_time, updated_time) VALUES ('profile-a', NULL, 'archive@example.test', NULL, NULL, 'CONNECTED', 1, 1)")
+            execSQL("INSERT INTO account_profiles (profile_id, provider_account_id, account_email, display_name, photo_url, connection_state, created_time, updated_time) VALUES ('profile-b', NULL, 'mirror@example.test', NULL, NULL, 'CONNECTED', 1, 1)")
+            execSQL("INSERT INTO account_settings (profile_id, backup_enabled, gmail_enabled, drive_enabled, include_contact_names, backup_mode, previous_policy, policy_changed_at, backup_label, scheduled_backup_enabled, encryption_enabled) VALUES ('profile-a', 1, 1, 0, 1, 'ARCHIVE_APPEND_ONLY', NULL, NULL, 'SMS', 0, 0)")
+            execSQL("INSERT INTO account_settings (profile_id, backup_enabled, gmail_enabled, drive_enabled, include_contact_names, backup_mode, previous_policy, policy_changed_at, backup_label, scheduled_backup_enabled, encryption_enabled) VALUES ('profile-b', 1, 1, 0, 1, 'MIRROR', NULL, NULL, 'SMS', 0, 0)")
+            execSQL("INSERT INTO conversation_snapshots (profile_id, account_id, account_email, android_thread_id, address, contact_name, message_count, snapshot_hash, local_source_hash, local_source_message_count, local_source_last_message_date, local_source_max_sms_id, local_source_device_id, gmail_message_id, gmail_thread_id, first_message_date, last_message_date, backup_time) VALUES ('profile-b', 'mirror@example.test', 'mirror@example.test', 7, 'fixture', NULL, 1, 'snapshot', 'local', 1, 2, 3, 'device-b', 'message', NULL, 1, 2, 3)")
+            execSQL("INSERT INTO mirror_reconciliation_runs (run_id, profile_id, account_identity, device_id, device_label_id, expected_policy, created_at, expires_at, local_dataset_fingerprint, remote_index_fingerprint, local_scan_complete, local_conversations, owned_remote_conversations, unchanged_count, upload_new_count, replace_changed_count, trash_remote_only_count, recover_cache_count, conflict_count, foreign_ignored_count, failed_count, estimated_reads, estimated_uploads, estimated_trash_moves, estimated_duration_millis, status, confirmed_at, completed_at, terminal_reason) VALUES ('completed', 'profile-b', 'mirror@example.test', 'device-b', 'label-b', 'MIRROR', 1, 2, 'local', 'remote', 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 'COMPLETED', 1, 2, NULL)")
+            execSQL("INSERT INTO mirror_reconciliation_items (run_id, item_id, profile_id, account_identity, device_id, conversation_key, android_thread_id, action, expected_local_source_hash, expected_remote_snapshot_hash, prior_gmail_message_id, state, attempts, resulting_gmail_message_id, warning_category, failure_category, completed_at, old_target_profile_id, old_target_account_identity, old_target_device_id, old_target_device_label_id, old_target_android_thread_id, old_target_gmail_message_id, old_target_snapshot_hash, old_target_conversation_key_header, old_target_identity_version_header, old_target_format_version_header, old_target_proof_version) VALUES ('completed', 'item', 'profile-b', 'mirror@example.test', 'device-b', 'key', 7, 'UNCHANGED', 'local', 'snapshot', 'message', 'COMPLETED', 0, 'message', NULL, NULL, 2, 'profile-b', 'mirror@example.test', 'device-b', 'label-b', 7, 'message', 'snapshot', 'key', 'mirror-thread-v1', '3', 'V8_EXACT_ID_HASH_BINDING')")
+            execSQL("INSERT INTO backup_verifications (profile_id, account_email, device_id, device_name, mode, started_at, completed_at, status, local_message_count, local_conversation_count, archived_message_count, archived_conversation_count, matched_message_count, missing_message_count, unexpected_archived_message_count, duplicate_fingerprint_count, unreadable_archive_count, verification_percent, short_summary) VALUES ('profile-b', 'mirror@example.test', 'device-b', 'device', 'MIRROR', 1, 2, 'VERIFIED', 1, 1, 1, 1, 1, 0, 0, 0, 0, 100.0, 'verified')")
+            close()
+        }
+        helper.runMigrationsAndValidate(name, 10, true, DatabaseProvider.MIGRATION_9_10)
+            .use { database ->
+                database.query("SELECT backup_mode FROM account_settings WHERE profile_id = 'profile-a'")
+                    .use { it.moveToFirst(); assertEquals("ARCHIVE_APPEND_ONLY", it.getString(0)) }
+                database.query("SELECT backup_mode FROM account_settings WHERE profile_id = 'profile-b'")
+                    .use { it.moveToFirst(); assertEquals("MIRROR", it.getString(0)) }
+                database.query("SELECT snapshot_hash, gmail_message_id FROM conversation_snapshots WHERE profile_id = 'profile-b'")
+                    .use {
+                        it.moveToFirst()
+                        assertEquals("snapshot", it.getString(0))
+                        assertEquals("message", it.getString(1))
+                    }
+                database.query("SELECT status FROM mirror_reconciliation_runs WHERE run_id = 'completed'")
+                    .use { it.moveToFirst(); assertEquals("COMPLETED", it.getString(0)) }
+                database.query("SELECT state, resulting_gmail_message_id, old_target_proof_version FROM mirror_reconciliation_items WHERE run_id = 'completed'")
+                    .use {
+                        it.moveToFirst()
+                        assertEquals("COMPLETED", it.getString(0))
+                        assertEquals("message", it.getString(1))
+                        assertEquals("V8_EXACT_ID_HASH_BINDING", it.getString(2))
+                    }
+                database.query("SELECT status, matched_message_count FROM backup_verifications WHERE profile_id = 'profile-b'")
+                    .use {
+                        it.moveToFirst()
+                        assertEquals("VERIFIED", it.getString(0))
+                        assertEquals(1, it.getInt(1))
+                    }
+                database.query("SELECT count(*) FROM mirror_preview_scans")
+                    .use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+                database.query("SELECT count(*) FROM mirror_preview_local_items")
+                    .use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+                database.query("SELECT count(*) FROM mirror_preview_remote_items")
+                    .use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+            }
+    }
     private companion object {
         const val DATABASE_NAME = "migration-3-4"
     }

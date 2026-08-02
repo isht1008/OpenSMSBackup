@@ -34,6 +34,18 @@ Manual Gmail backup is unique WorkManager work named by immutable profile ID. Th
 
 Sprint 2B retries remain operation-local. The worker returns typed logical aborts with `Result.success`, infrastructure/input failures with `Result.failure`, and never uses `Result.retry`: restarting the entire worker could duplicate a Gmail insertion whose response was lost.
 
+### Durable read-only Full Mirror Preview
+
+**Implemented (automated validation):** Full Mirror Preview is unique WorkManager dataSync work bound to the immutable Mirror profile and installation device. HomeViewModel only enqueues, observes, loads the atomically published result, and cancels exact work. A cold-start application-scope reconciler queries resumable Room scans independently of the old WorkSpec: it observes matching active work, or enqueues one continuation with the same scan ID when the old work is terminal or missing. Completed checkpoints are not reset.
+
+Android task removal/process death is not explicit cancellation. Worker interruption leaves a non-executable scan paused/resumable; app and notification Cancel first persist `CANCELLED`, then cancel the exact WorkSpec. Published, expired, explicitly cancelled, failed, ambiguous, and binding-mismatched scans are never resurrected. The initial physical task-removal test exposed the missing startup reconciliation; a corrected physical retest remains **Planned** and is not yet claimed as passing.
+
+Room v10 keeps preview scan sessions and local/remote scalar items separate from mirror_reconciliation_runs. Scan rows contain hashes, counts, opaque app-private Gmail cursors/IDs, safe lifecycle/retry state, and no SMS/Gmail bodies, addresses, contact names, account email copies, or credentials. A scan ID is non-executable. Only a complete, current, invariant-checked scan may transactionally create a distinct reconciliation PREVIEW run and items.
+
+Current-format metadata may establish an unchanged item only with exact cached Gmail ID, profile/account/device/label/thread binding, recomputed Mirror key, supported format, unique candidate, metadata hash, cached hash, and current local hash agreement. All uncertain or destructive cases retain full attachment and immutable ownership validation. Execution-time old-target validation is unchanged.
+
+Metadata work is scheduled in fixed-size batches with four active reads; full snapshots remain sequential. A terminal transient transport failure opens the scan circuit immediately, checkpoints aggregate position, and returns durable WorkManager retry. Authorization and permanent data errors remain distinct. Retry diagnostics contain only stage, operation, safe subtype/category, attempt, delay, and aggregate counts.
+
 ### Installation-scoped device namespaces
 
 Every installation owns a random UUID Device Profile stored independently of Gmail accounts. Gmail labels are readable aliases; device headers and V2 conversation identity are authoritative. Legacy V1 archives may be continued only through a matching pre-upgrade Room cache. A foreign or unowned legacy snapshot is never automatically claimed, merged, replaced, or moved to Trash.

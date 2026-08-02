@@ -38,7 +38,13 @@ Room v2 stores `(account_id, android_thread_id)`, snapshot hash, Gmail message/t
 
 **Partially implemented:** SMS reading and conversation construction still process the complete Android dataset. Recent-test Mirror executes only the explicitly selected conversations. No global missing-conversation reconciliation exists, so omitted conversations cannot be uploaded, replaced, or moved to Trash. Archive remains append-only. Limited verification can return at most `PARTIALLY_VERIFIED`, never full-dataset `VERIFIED`.
 
-**Planned:** Full Mirror backup remains blocked pending deletion preview, thresholds, confirmation, and recovery safeguards. Stable identity, retry/resume, large-conversation handling, Gmail index reconstruction, archive/mirror reconciliation, and encryption remain planned.
+**Implemented:** Full Mirror uses preview, thresholds, typed confirmation, immutable ownership, recoverable Trash, and a mutation journal. Full Mirror Preview now runs as durable WorkManager read-only work with Room v10 scan checkpoints, cache-first metadata validation, bounded scheduling, transient-network pause/resume, and atomic final-plan publication. Stable cross-device identity, large-conversation handling, general durable Archive index reconstruction, and encryption remain planned.
+
+## Durable Full Mirror Preview reads
+
+**Implemented:** Gmail metadata requests account, device, conversation key, identity version, format version, Android thread ID, and snapshot hash. A full attachment is avoided only when exact profile-scoped Room ID/hash state and current local hash agree with a unique current-format metadata candidate and every immutable ownership field. All uncertain or potentially destructive cases keep full attachment validation.
+
+Metadata is processed in fixed-size checkpoint batches with at most four active requests, and required full snapshots are read sequentially. Successful scalar results are persisted and payload objects are released. A terminal transient network/server/throttle failure pauses the scan and returns WorkManager retry; unrelated snapshots are not marked unreadable. Retry-After is honored even when longer than the local exponential delay. On cold startup, eligible Room scans are reconciled with active, terminal, or missing WorkSpecs and continued once with the same scan ID. Explicit cancellation is persisted before WorkManager cancellation; process interruption remains resumable. Diagnostics log safe subtype/category, hashed work/scan scope, lifecycle decisions, and bounded aggregate position—not exception messages or identifiers.
 
 ## Current attachment shape
 
@@ -60,7 +66,7 @@ The root contains `formatVersion: 3`, `backupType`, account email, snapshot hash
 
 Authorization failures such as HTTP 401 and missing Gmail permission stop immediately. The active profile is preserved and marked `AUTHORIZATION_REQUIRED`; temporary network, server, and throttling failures do not change its connected state. Ambiguous HTTP 403 responses stop conservatively, while explicit rate-limit reasons are treated as temporary.
 
-Retries use at most three attempts with cancellable exponential delays of roughly one and two seconds plus modest jitter. A server Retry-After value is honored up to ten seconds. Read-only label listing and move-to-Trash are retried because those operations are safe to repeat. Label creation is not retried because a lost response could create a duplicate label. Gmail message insertion is also not retried: until remote snapshot lookup/index reconstruction exists, a response lost after Gmail accepts an insert could create a duplicate conversation email.
+Retries use at most three attempts with cancellable exponential delays of roughly one and two seconds plus modest jitter. Local exponential delay is capped, while a longer server Retry-After delta or HTTP-date is honored. Read-only label listing and move-to-Trash are retried because those operations are safe to repeat. Label creation is not retried because a lost response could create a duplicate label. Gmail message insertion is also not retried: until remote snapshot lookup/index reconstruction exists, a response lost after Gmail accepts an insert could create a duplicate conversation email.
 
 Fatal failures abort before the next conversation. Other matching failures trip an early-abort circuit after five consecutive conversations; a successful upload or unchanged conversation resets it. Checked/failed counts include only attempted conversations, while unattempted conversations are reported as remaining. Existing successful uploads and Room snapshots are retained.
 

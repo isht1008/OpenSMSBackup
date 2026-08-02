@@ -13,7 +13,7 @@ OpenSMSBackup is an Android 12+ privacy-first SMS backup app. The current code r
 - Local format-v2 JSON export to `Documents/OpenSMSBackup` through MediaStore, plus a simple backup-history list.
 - Multiple Room-backed Google account profiles with selected profile ID in DataStore and profile-aware Gmail `gmail.modify` access.
 - Gmail format-v3 snapshot generation: one email per Android `threadId`, chronological sent/received content, HTML and plain text, custom headers, and restore JSON attachment.
-- Room database v9 with account profiles/settings, policy transition metadata, legacy backup and conversation-snapshot tables, local-source Archive checkpoints, Full Mirror journals with immutable superseded-target proof, and count-only verification history; explicit non-destructive migrations exist.
+- Room database v10 with account profiles/settings, policy transition metadata, legacy backup and conversation-snapshot tables, local-source Archive checkpoints, Full Mirror journals with immutable superseded-target proof, separate non-executable Full Mirror Preview scan checkpoints, and count-only verification history; explicit non-destructive migrations exist.
 - Incremental Gmail comparison using a SHA-256 snapshot hash. Replacement is uploaded and persisted before the previous message is moved to Trash.
 - Routine Archive `INCREMENTAL` work bulk-loads Room checkpoints and skips checkpoint-identical conversations without reading Gmail snapshots or building the remote index. `FULL` is the explicit full reconciliation scope.
 - Routine Archive checkpoint v2 hashes raw deterministic source fields rather than locale-formatted dates. Exact v1 matches are upgraded in one local Room batch without Gmail access; null or genuinely mismatched rows still receive a safe remote comparison.
@@ -58,6 +58,10 @@ See `ROADMAP.md`, `DESIGN_DECISIONS.md`, and the topic documents under `docs/` b
 **Implemented:** Full Mirror uses a persisted, expiring, immutable preview for one Mirror profile and device. It never derives ownership from the later selected account. Account A Archive state is isolated from Account B Mirror state. See `docs/FULL_MIRROR.md` for the safety ordering, recovery journal, and limitations.
 
 **Implemented:** production physical Full Mirror validation completed a 3,332-conversation plan and its journal-aware Trash-only recovery with all items completed, zero duplicate uploads, zero Account A operations, and zero permanent deletions. Diagnostic evidence is retained outside Git.
+
+**Implemented (automated validation):** Full Mirror Preview runs as unique profile/device-bound WorkManager work. Room v10 persists only privacy-safe local/remote scalar scan state, page progress, retry state, and aggregate counters. Cold application startup reconciles resumable Room scans even if a task-removal WorkSpec is terminal or missing, and continues with the same scan ID. Explicit Cancel is durably distinguished from process interruption. Partial scan IDs are never reconciliation runs and cannot be confirmed. A distinct executable PREVIEW run is published atomically only after complete local/remote consistency and binding revalidation. The corrected task-removal path still requires a physical retest.
+
+**Implemented:** Preview requests Android thread ID and snapshot hash in Gmail metadata. An exact current-format Account B cache/header/local-hash match avoids the full attachment; legacy, missing, mismatched, duplicate, remote-only, changed, or ambiguous candidates retain full-document validation. Metadata scheduling and full reads are bounded, while terminal transient transport failure pauses the whole checkpoint instead of classifying unrelated snapshots as unreadable.
 
 ## Mirror thread identity correction
 

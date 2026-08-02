@@ -365,7 +365,10 @@ fun HomeScreen(
             }
             if (viewModel.isCreatingFullMirrorPreview) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Building a read-only Full Mirror preview…")
+                PrimaryButton(
+                    text = "Cancel Full Mirror preview",
+                    onClick = viewModel::cancelFullMirrorPreview
+                )
             }
             if (viewModel.fullMirrorPreview == null) {
                 viewModel.fullMirrorError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -495,6 +498,11 @@ fun HomeScreen(
                                     }
                                 }
                             }
+                            viewModel.isCreatingFullMirrorPreview ->
+                                viewModel.fullMirrorPreviewProgress?.let {
+                                    io.github.isht1008.opensmsbackup.gmail.mirror
+                                        .FullMirrorPreviewProgressText.details(it)
+                                } ?: "Preparing Full Mirror preview"
                             else -> "Creating local backup..."
                         }
                 )

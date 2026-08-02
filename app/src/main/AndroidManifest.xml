@@ -11,6 +11,7 @@
         android:name="android.hardware.telephony"
         android:required="false" />
     <application
+        android:name=".OpenSmsBackupApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -35,6 +36,9 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+        <receiver
+            android:name=".gmail.mirror.FullMirrorPreviewCancelReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

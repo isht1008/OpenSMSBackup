@@ -31,7 +31,8 @@ class FullMirrorCoordinator(private val context: Context) {
         if (trash > 0) require(typedConfirmation?.trim() == "MIRROR $trash") { "Typed Mirror confirmation does not match." }
         val gmailActive = workManager.getWorkInfosByTagFlow(GmailBackupWorkContract.ALL_WORK_TAG).first().any { !it.state.isFinished }
         val mirrorActive = workManager.getWorkInfosByTagFlow(FullMirrorWorkContract.ALL_WORK_TAG).first().any { !it.state.isFinished }
-        require(!gmailActive && !mirrorActive) { "Another Gmail operation is active." }
+        val previewActive = workManager.getWorkInfosByTagFlow(FullMirrorPreviewWorkContract.ALL_WORK_TAG).first().any { !it.state.isFinished }
+        require(!gmailActive && !mirrorActive && !previewActive) { "Another Gmail operation is active." }
         check(dao.confirm(runId, run.profileId, run.deviceId, System.currentTimeMillis()) == 1)
         val input = FullMirrorWorkInput(runId, run.profileId, run.deviceId, System.currentTimeMillis())
         val request = OneTimeWorkRequestBuilder<FullMirrorWorker>()
@@ -64,7 +65,8 @@ class FullMirrorCoordinator(private val context: Context) {
     private suspend fun enqueue(runId: String, profileId: String, deviceId: String): java.util.UUID {
         val gmailActive = workManager.getWorkInfosByTagFlow(GmailBackupWorkContract.ALL_WORK_TAG).first().any { !it.state.isFinished }
         val mirrorActive = workManager.getWorkInfosByTagFlow(FullMirrorWorkContract.ALL_WORK_TAG).first().any { !it.state.isFinished }
-        require(!gmailActive && !mirrorActive) { "Another Gmail operation is active." }
+        val previewActive = workManager.getWorkInfosByTagFlow(FullMirrorPreviewWorkContract.ALL_WORK_TAG).first().any { !it.state.isFinished }
+        require(!gmailActive && !mirrorActive && !previewActive) { "Another Gmail operation is active." }
         val input = FullMirrorWorkInput(runId, profileId, deviceId, System.currentTimeMillis())
         val request = OneTimeWorkRequestBuilder<FullMirrorWorker>()
             .setInputData(FullMirrorWorkContract.inputData(input))
@@ -85,5 +87,11 @@ class FullMirrorCoordinator(private val context: Context) {
         FullMirrorFailedPlanReconciler(context).reconcile(infos)
     fun cancel(workId: java.util.UUID) = workManager.cancelWorkById(workId)
     suspend fun hasActiveForProfile(profileId: String): Boolean =
-        workManager.getWorkInfosByTagFlow(FullMirrorWorkContract.profileTag(profileId)).first().any { it.state in setOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED) }
+        workManager.getWorkInfosByTagFlow(FullMirrorWorkContract.profileTag(profileId)).first()
+            .any { it.state in setOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED) } ||
+            workManager.getWorkInfosByTagFlow(
+                FullMirrorPreviewWorkContract.profileTag(profileId)
+            ).first().any {
+                it.state in setOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED)
+            }
 }

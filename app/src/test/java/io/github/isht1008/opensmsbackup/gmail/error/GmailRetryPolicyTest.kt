@@ -47,7 +47,7 @@ class GmailRetryPolicyTest {
         }
     }
 
-    @Test fun `retry after is honored within maximum`() = runBlocking {
+    @Test fun `retry after longer than local maximum is honored`() = runBlocking {
         val delays = mutableListOf<Long>()
         var calls = 0
         val policy = policy(delayBlock = { delays += it })
@@ -60,7 +60,7 @@ class GmailRetryPolicyTest {
             if (calls == 1) throw GmailOperationException(failure)
             Unit
         }
-        assertEquals(listOf(10_000L), delays)
+        assertEquals(listOf(30_000L), delays)
     }
 
     @Test fun `cancellation interrupts retry delay`() = runBlocking {
@@ -84,6 +84,29 @@ class GmailRetryPolicyTest {
         }
         policy.execute("second", "profile") { Unit }
         assertEquals(listOf(1_000L), delays)
+    }
+
+    @Test fun diagnosticsContainSafeSubtypeAndNoProfileIdentifierOrMessage() = runBlocking {
+        val logs = mutableListOf<String>()
+        val policy = GmailRetryPolicy(
+            maximumAttempts = 1,
+            jitterMillis = { 0L },
+            delayBlock = {},
+            logger = { logs += it }
+        )
+        try {
+            policy.execute("get_archive_snapshot", "private-profile-id") {
+                throw SocketTimeoutException("private endpoint detail")
+            }
+            fail("Expected GmailOperationException")
+        } catch (_: GmailOperationException) {
+            Unit
+        }
+        assertEquals(1, logs.size)
+        val diagnostic = logs.single()
+        assertEquals(true, diagnostic.contains("subtype=SOCKET_TIMEOUT"))
+        assertEquals(false, diagnostic.contains("private-profile-id"))
+        assertEquals(false, diagnostic.contains("private endpoint detail"))
     }
 
     private fun policy(

@@ -66,7 +66,7 @@ OpenSMSBackup v1 is backup-only and does not act as the default messaging applic
 
 ## Full Mirror synchronization
 
-**Implemented:** production-safe preview, confirmation, immutable Account B binding, bounded recovery, Room journal, recoverable Trash ordering, cancellation/resume, progress UI, and automated regression coverage. **Deferred:** permanent deletion, automatic conflict resolution, and concurrent multi-account Gmail mutations.
+**Implemented:** production-safe preview, confirmation, immutable Account B binding, bounded recovery, Room journal, recoverable Trash ordering, cancellation/resume, progress UI, and automated regression coverage. Preview scanning uses durable WorkManager work with Room v10 non-executable checkpoints, cache-first metadata validation, bounded scheduling, scan-level transient-network pause/resume, atomic final-plan publication, and cold-start Room/WorkSpec reconciliation. Task removal is distinct from explicit cancellation and continuation retains the original scan ID. **Planned:** rerun physical task-removal recovery after the first test exposed and motivated the startup-reconciler correction, then run controlled network pause/resume. **Deferred:** permanent deletion, automatic conflict resolution, and concurrent multi-account Gmail mutations.
 
 ## Full Mirror identity compatibility
 

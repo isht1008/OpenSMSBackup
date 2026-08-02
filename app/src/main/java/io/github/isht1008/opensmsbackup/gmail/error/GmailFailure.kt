@@ -11,6 +11,19 @@ enum class GmailFailureCategory {
     UNKNOWN
 }
 
+enum class GmailSafeExceptionSubtype {
+    AUTHORIZATION,
+    HTTP,
+    SOCKET_TIMEOUT,
+    DNS,
+    CONNECTION,
+    SOCKET_RESET,
+    SOCKET_OTHER,
+    TLS,
+    LOCAL_DATA,
+    UNKNOWN
+}
+
 data class GmailFailure(
     val category: GmailFailureCategory,
     val originalException: Throwable,
@@ -20,7 +33,8 @@ data class GmailFailure(
     val retryable: Boolean,
     val stopBackup: Boolean,
     val reauthorizationRequired: Boolean,
-    val retryAfterMillis: Long? = null
+    val retryAfterMillis: Long? = null,
+    val safeExceptionSubtype: GmailSafeExceptionSubtype = GmailSafeExceptionSubtype.UNKNOWN
 ) {
     val circuitKey: String
         get() =

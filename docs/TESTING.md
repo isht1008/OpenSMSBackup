@@ -2,7 +2,7 @@
 
 ## Current state
 
-Only template tests exist: a `2 + 2` JVM test and an instrumentation package-name assertion. There are no tests for SMS ingestion, MIME/JSON, hashes, Room migration, Gmail ordering, account isolation, or UI workflows. A successful build is necessary but not sufficient.
+**Implemented:** The project has JVM coverage for SMS identity/fingerprints, MIME/JSON parsing and generation, Archive/Mirror strategy and safety ordering, Gmail retry/error handling, WorkManager contracts/state mapping, account isolation, Full Mirror planning/execution/resume, and durable Full Mirror Preview correction behavior. Android-test sources cover Room migrations through version 10 plus foreground notification/service contracts. A successful build remains necessary but not sufficient.
 
 ## Commands
 
@@ -60,3 +60,13 @@ The production run conserved 3,332 conversations as 9 unchanged, 3,311 new uploa
 **Implemented:** tests cover exact conservation at 3,330 conversations, a supported 10,000-conversation plan, explicit non-truncating 10,001 limit blocking, short-code/alphanumeric/non-normalizable senders, invalid and duplicate threads, duplicate remote identities, cross-account/device separation, Archive V3 preservation, thirteen cached legacy replacements, uncached legacy conflict, blocked confirmation hiding, safe typed confirmation, scalar WorkManager data, and upload/persist/Trash ordering.
 
 For a physical preview, capture the aggregate `full_mirror_preview` diagnostic after the user manually creates the preview. Compare `local` with `local_classified` and `remote_candidates` with `remote_classified`; both pairs must match. Review nonzero reason categories before any confirmation.
+
+## Durable Full Mirror Preview correction
+
+**Implemented automated coverage:** version-10 schema generation and migration source compile; exact cached unchanged fast-path acceptance; profile/account/device/label/thread/key/hash/format, duplicate, legacy, missing-local, and changed-local fallback; duplicate ownership-header rejection; scalar planner conservation and old-target proof; bounded metadata batching and sequential full reads; identifier-hashed preview work names/tags; immutable-ID promotion across relisting without repeating completed full reads; every preview stage label; local JSON label preservation; non-executable partial scan IDs; checkpoint schema privacy; identifier-free retry diagnostics; Retry-After delta/HTTP-date parsing and durable retry gating; and distinct timeout, DNS, connect, reset, socket, TLS, HTTP, and authorization categories.
+
+**Implemented architecture assertions:** production HomeViewModel enqueues/observes preview work rather than running the scanner, scanner resume skips durable local work and completed metadata IDs, preview scanner contains no Gmail insert/Trash/permanent-delete calls, and it never resolves the later selected account.
+
+**Implemented recovery regression coverage:** production recovery policy and engine tests cover missing, cancelled, failed, active, and ambiguous old WorkSpecs; one continuation on repeated reconciliation; original scan-ID and checkpoint-counter preservation; explicit-cancel versus worker interruption; expiry/binding/Archive exclusion; published-scan non-republication; network-wait resume; restoring/resuming UI text; and hashed diagnostic identities. The first physical task-removal run failed because startup only observed WorkManager and did not reconcile the surviving Room checkpoint. The correction is automated-test complete; physical PASS remains **Planned**.
+
+**Planned physical validation:** install the corrected debug APK in place without uninstalling; swipe the task during Account B metadata checking; reopen normally; prove startup observes or enqueues exactly one same-scan continuation, completed counters remain monotonic, and one executable plan is published only at completion. Then test explicit cancellation separately. Only after task-removal recovery passes, induce and recover one controlled network interruption. Throughout, prove zero uploads, Trash, permanent deletion, Account A operations, and partial executable plans. Do not type the MIRROR confirmation or execute the plan during these read-only retests.

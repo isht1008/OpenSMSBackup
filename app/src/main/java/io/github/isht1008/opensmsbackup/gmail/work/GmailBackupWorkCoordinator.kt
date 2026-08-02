@@ -10,6 +10,7 @@ import androidx.work.WorkManager
 import io.github.isht1008.opensmsbackup.account.data.GmailBackupMode
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupRunPlanner
 import io.github.isht1008.opensmsbackup.gmail.backup.GmailBackupScope
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewWorkContract
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import java.util.UUID
@@ -35,14 +36,21 @@ private class AndroidGmailBackupWorkGateway(
         workManager.getWorkInfosByTagFlow(GmailBackupWorkContract.ALL_WORK_TAG)
             .first()
             .firstOrNull { GmailBackupWorkContract.isActive(it.state) }
-            ?.id
+            ?.id ?: workManager.getWorkInfosByTagFlow(FullMirrorPreviewWorkContract.ALL_WORK_TAG)
+                .first()
+                .firstOrNull { FullMirrorPreviewWorkContract.isActive(it.state) }
+                ?.id
 
     override suspend fun activeProfileId(profileId: String): UUID? =
         workManager
             .getWorkInfosForUniqueWorkFlow(GmailBackupWorkContract.uniqueWorkName(profileId))
             .first()
             .firstOrNull { GmailBackupWorkContract.isActive(it.state) }
-            ?.id
+            ?.id ?: workManager
+                .getWorkInfosByTagFlow(FullMirrorPreviewWorkContract.profileTag(profileId))
+                .first()
+                .firstOrNull { FullMirrorPreviewWorkContract.isActive(it.state) }
+                ?.id
 
     override fun enqueueUnique(name: String, request: OneTimeWorkRequest) {
         workManager.enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, request)

@@ -2,9 +2,17 @@ package io.github.isht1008.opensmsbackup.gmail.error
 
 import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.SocketTimeoutException
+import java.net.ConnectException
+import java.net.SocketException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 class GmailErrorClassifierTest {
     private val classifier = GmailErrorClassifier()
@@ -44,7 +52,31 @@ class GmailErrorClassifierTest {
     }
 
     @Test fun `socket timeout is retryable`() {
-        assertTrue(classifier.classify(SocketTimeoutException()).retryable)
+        val failure = classifier.classify(SocketTimeoutException())
+        assertTrue(failure.retryable)
+        assertEquals(GmailSafeExceptionSubtype.SOCKET_TIMEOUT, failure.safeExceptionSubtype)
+    }
+
+    @Test fun privacySafeTransportSubtypesRemainDistinct() {
+        assertEquals(GmailSafeExceptionSubtype.DNS, classifier.classify(UnknownHostException()).safeExceptionSubtype)
+        assertEquals(GmailSafeExceptionSubtype.CONNECTION, classifier.classify(ConnectException()).safeExceptionSubtype)
+        assertEquals(GmailSafeExceptionSubtype.SOCKET_RESET, classifier.classify(SocketException("Connection reset")).safeExceptionSubtype)
+        assertEquals(GmailSafeExceptionSubtype.SOCKET_OTHER, classifier.classify(SocketException("broken pipe")).safeExceptionSubtype)
+        assertEquals(GmailSafeExceptionSubtype.TLS, classifier.classify(SSLException("handshake")).safeExceptionSubtype)
+        assertEquals(GmailSafeExceptionSubtype.AUTHORIZATION, classifier.classifyHttp(401).safeExceptionSubtype)
+        assertEquals(GmailSafeExceptionSubtype.HTTP, classifier.classifyHttp(503).safeExceptionSubtype)
+    }
+
+    @Test fun retryAfterSupportsDeltaSecondsHttpDatesAndOverflow() {
+        assertEquals(120_000L, GmailRetryAfterParser.parseMillis("120", 1_000L))
+        val now = ZonedDateTime.of(2026, 8, 1, 0, 0, 0, 0, ZoneOffset.UTC)
+        val later = now.plusMinutes(30).format(DateTimeFormatter.RFC_1123_DATE_TIME)
+        assertEquals(
+            30L * 60L * 1_000L,
+            GmailRetryAfterParser.parseMillis(later, now.toInstant().toEpochMilli())
+        )
+        assertEquals(Long.MAX_VALUE, GmailRetryAfterParser.parseMillis(Long.MAX_VALUE.toString(), 0L))
+        assertEquals(null, GmailRetryAfterParser.parseMillis("-1", 0L))
     }
 
     @Test fun `temporary failure does not require profile state change`() {

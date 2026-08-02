@@ -7,6 +7,9 @@ import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import javax.net.ssl.SSLException
 
 class GmailErrorClassifier {
 
@@ -34,6 +37,19 @@ class GmailErrorClassifier {
                 retryable = false,
                 stopBackup = true,
                 reauthorizationRequired = true
+            )
+        }
+
+        if (findCause<SSLException>(error) != null) {
+            return failure(
+                GmailFailureCategory.NETWORK,
+                error,
+                status,
+                reason,
+                "A secure Gmail connection could not be established.",
+                retryable = true,
+                stopBackup = false,
+                reauthorizationRequired = false
             )
         }
 
@@ -164,8 +180,8 @@ class GmailErrorClassifier {
         }
 
     private fun retryAfterMillis(error: GoogleJsonResponseException?): Long? {
-        val raw = error?.headers?.get("Retry-After")?.toString() ?: return null
-        return raw.toLongOrNull()?.times(1_000L)
+        val raw = error?.headers?.getFirstHeaderStringValue("Retry-After") ?: return null
+        return GmailRetryAfterParser.parseMillis(raw, System.currentTimeMillis())
     }
 
     private inline fun <reified T : Throwable> findCause(error: Throwable): T? {
@@ -205,8 +221,27 @@ class GmailErrorClassifier {
         retryable,
         stopBackup,
         reauthorizationRequired,
-        retryAfterMillis
+        retryAfterMillis,
+        safeSubtype(error, status, category)
     )
+
+    private fun safeSubtype(
+        error: Throwable,
+        status: Int?,
+        category: GmailFailureCategory
+    ): GmailSafeExceptionSubtype = when {
+        category == GmailFailureCategory.AUTHORIZATION -> GmailSafeExceptionSubtype.AUTHORIZATION
+        status != null -> GmailSafeExceptionSubtype.HTTP
+        findCause<SocketTimeoutException>(error) != null -> GmailSafeExceptionSubtype.SOCKET_TIMEOUT
+        findCause<UnknownHostException>(error) != null -> GmailSafeExceptionSubtype.DNS
+        findCause<ConnectException>(error) != null -> GmailSafeExceptionSubtype.CONNECTION
+        findCause<SSLException>(error) != null -> GmailSafeExceptionSubtype.TLS
+        findCause<SocketException>(error)?.message?.contains("reset", ignoreCase = true) == true ->
+            GmailSafeExceptionSubtype.SOCKET_RESET
+        findCause<SocketException>(error) != null -> GmailSafeExceptionSubtype.SOCKET_OTHER
+        category == GmailFailureCategory.LOCAL -> GmailSafeExceptionSubtype.LOCAL_DATA
+        else -> GmailSafeExceptionSubtype.UNKNOWN
+    }
 
     private companion object {
         val RETRYABLE_SERVER_STATUSES = setOf(500, 502, 503, 504)
@@ -225,5 +260,21 @@ class GmailErrorClassifier {
         )
         const val RATE_LIMIT_MESSAGE =
             "Google temporarily limited Gmail requests. Please try again later."
+    }
+}
+
+internal object GmailRetryAfterParser {
+    fun parseMillis(raw: String, nowMillis: Long): Long? {
+        raw.trim().toLongOrNull()?.let { seconds ->
+            if (seconds < 0L) return null
+            return if (seconds > Long.MAX_VALUE / 1_000L) Long.MAX_VALUE
+            else seconds * 1_000L
+        }
+        val deadline = runCatching {
+            ZonedDateTime.parse(raw.trim(), DateTimeFormatter.RFC_1123_DATE_TIME)
+                .toInstant()
+                .toEpochMilli()
+        }.getOrNull() ?: return null
+        return (deadline - nowMillis).coerceAtLeast(0L)
     }
 }

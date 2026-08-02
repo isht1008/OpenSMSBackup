@@ -12,9 +12,12 @@ import androidx.room.RoomDatabase
         AccountSettingsEntity::class,
         BackupVerificationEntity::class,
         MirrorReconciliationRunEntity::class,
-        MirrorReconciliationItemEntity::class
+        MirrorReconciliationItemEntity::class,
+        MirrorPreviewScanEntity::class,
+        MirrorPreviewLocalItemEntity::class,
+        MirrorPreviewRemoteItemEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class BackupDatabase : RoomDatabase() {
@@ -24,4 +27,5 @@ abstract class BackupDatabase : RoomDatabase() {
     abstract fun accountProfileDao(): AccountProfileDao
     abstract fun backupVerificationDao(): BackupVerificationDao
     abstract fun mirrorReconciliationDao(): MirrorReconciliationDao
+    abstract fun mirrorPreviewScanDao(): MirrorPreviewScanDao
 }

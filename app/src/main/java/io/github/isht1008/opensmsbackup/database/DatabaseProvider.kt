@@ -298,6 +298,23 @@ object DatabaseProvider {
             """.trimIndent())
         }
     }
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS `mirror_preview_scans` (`scan_id` TEXT NOT NULL, `profile_id` TEXT NOT NULL, `account_fingerprint` TEXT NOT NULL, `device_id` TEXT NOT NULL, `device_label_id` TEXT NOT NULL, `expected_policy` TEXT NOT NULL, `include_contact_names` INTEGER NOT NULL, `lifecycle_state` TEXT NOT NULL, `stage` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `expires_at` INTEGER NOT NULL, `local_dataset_fingerprint` TEXT, `local_scan_complete` INTEGER NOT NULL, `local_count_consistent` INTEGER NOT NULL, `local_failure_category` TEXT, `local_message_count` INTEGER NOT NULL, `local_conversation_count` INTEGER NOT NULL, `local_processed` INTEGER NOT NULL, `remote_generation` INTEGER NOT NULL, `remote_page_cursor` TEXT, `remote_discovery_complete` INTEGER NOT NULL, `remote_discovery_fingerprint` TEXT, `remote_discovered` INTEGER NOT NULL, `metadata_checked` INTEGER NOT NULL, `full_reads_required` INTEGER NOT NULL, `full_reads_completed` INTEGER NOT NULL, `cached_unchanged` INTEGER NOT NULL, `foreign_ignored` INTEGER NOT NULL, `retry_count` INTEGER NOT NULL, `retry_attempt` INTEGER NOT NULL, `retry_at` INTEGER, `last_error_category` TEXT, `last_error_subtype` TEXT, `published_run_id` TEXT, PRIMARY KEY(`scan_id`), FOREIGN KEY(`profile_id`) REFERENCES `account_profiles`(`profile_id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_scans_profile_id` ON `mirror_preview_scans` (`profile_id`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_scans_profile_id_device_id_lifecycle_state` ON `mirror_preview_scans` (`profile_id`, `device_id`, `lifecycle_state`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_scans_expires_at` ON `mirror_preview_scans` (`expires_at`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_scans_published_run_id` ON `mirror_preview_scans` (`published_run_id`)")
+            database.execSQL("CREATE TABLE IF NOT EXISTS `mirror_preview_local_items` (`scan_id` TEXT NOT NULL, `item_ordinal` INTEGER NOT NULL, `android_thread_id` INTEGER NOT NULL, `conversation_key` TEXT NOT NULL, `snapshot_hash` TEXT NOT NULL, `local_source_hash` TEXT NOT NULL, `message_count` INTEGER NOT NULL, `diagnostic_reason` TEXT, PRIMARY KEY(`scan_id`, `item_ordinal`), FOREIGN KEY(`scan_id`) REFERENCES `mirror_preview_scans`(`scan_id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_local_items_scan_id` ON `mirror_preview_local_items` (`scan_id`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_local_items_scan_id_conversation_key` ON `mirror_preview_local_items` (`scan_id`, `conversation_key`)")
+            database.execSQL("CREATE TABLE IF NOT EXISTS `mirror_preview_remote_items` (`scan_id` TEXT NOT NULL, `gmail_message_id` TEXT NOT NULL, `seen_generation` INTEGER NOT NULL, `item_state` TEXT NOT NULL, `conversation_key` TEXT NOT NULL, `android_thread_id` INTEGER, `snapshot_hash` TEXT, `identity_version` TEXT, `format_version` TEXT, `account_binding_valid` INTEGER NOT NULL, `device_binding_valid` INTEGER NOT NULL, `label_binding_valid` INTEGER NOT NULL, `ownership_valid` INTEGER NOT NULL, `readable` INTEGER NOT NULL, `cache_matches` INTEGER NOT NULL, `identity_current` INTEGER NOT NULL, `reason` TEXT, `full_read_attempts` INTEGER NOT NULL, PRIMARY KEY(`scan_id`, `gmail_message_id`), FOREIGN KEY(`scan_id`) REFERENCES `mirror_preview_scans`(`scan_id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_remote_items_scan_id` ON `mirror_preview_remote_items` (`scan_id`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_remote_items_scan_id_conversation_key` ON `mirror_preview_remote_items` (`scan_id`, `conversation_key`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_remote_items_scan_id_item_state` ON `mirror_preview_remote_items` (`scan_id`, `item_state`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_mirror_preview_remote_items_scan_id_seen_generation` ON `mirror_preview_remote_items` (`scan_id`, `seen_generation`)")
+        }
+    }
     @Volatile
     private var instance: BackupDatabase? = null
 
@@ -322,7 +339,8 @@ object DatabaseProvider {
                             MIGRATION_5_6,
                             MIGRATION_6_7,
                             MIGRATION_7_8,
-                            MIGRATION_8_9
+                            MIGRATION_8_9,
+                            MIGRATION_9_10
                         )
                         .build()
                         .also { database ->

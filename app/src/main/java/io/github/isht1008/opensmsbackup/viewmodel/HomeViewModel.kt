@@ -34,7 +34,14 @@ import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkCoordinator
 import io.github.isht1008.opensmsbackup.gmail.work.GmailBackupWorkStateMapper
 import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorCoordinator
 import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreview
-import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewService
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewCoordinator
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewDiagnostics
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewEnqueueResult
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewPersistence
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewProgress
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewRecoveryState
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewScanState
+import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewWorkContract
 import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorWorkContract
 import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorWorkProgress
 import io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorWorkResult
@@ -60,6 +67,7 @@ class HomeViewModel(
         GmailBackupWorkCoordinator(application)
     private val verificationCoordinator = BackupVerificationWorkCoordinator(application)
     private val fullMirrorCoordinator = FullMirrorCoordinator(application)
+    private val fullMirrorPreviewCoordinator = FullMirrorPreviewCoordinator(application)
     private val multiAccountRepository = MultiAccountRepository.create(application)
     private val backupModeController = GmailBackupModeController(
         multiAccountRepository
@@ -118,6 +126,10 @@ class HomeViewModel(
         private set
     var isCreatingFullMirrorPreview by mutableStateOf(false)
         private set
+    var fullMirrorPreviewProgress by mutableStateOf<FullMirrorPreviewProgress?>(null)
+        private set
+    var fullMirrorPreviewWorkId by mutableStateOf<UUID?>(null)
+        private set
     var fullMirrorError by mutableStateOf<String?>(null)
         private set
     var fullMirrorProgress by mutableStateOf<FullMirrorWorkProgress?>(null)
@@ -134,6 +146,8 @@ class HomeViewModel(
         observeGmailBackupWork()
         observeVerification()
         observeFullMirrorWork()
+        observeFullMirrorPreviewRecovery()
+        observeFullMirrorPreviewWork()
     }
 
     fun startVerification() = viewModelScope.launch {
@@ -491,21 +505,48 @@ class HomeViewModel(
 
 
     fun createFullMirrorPreview(context: Context, includeContactNames: Boolean) {
-        if (isCreatingFullMirrorPreview || gmailBackupUiState.isActive || isBackingUp || isVerifying) return
+        if (isCreatingFullMirrorPreview || gmailBackupUiState.isActive || isBackingUp ||
+            isVerifying || isFullMirrorActive
+        ) return
         val profile = selectedGmailProfile
         if (profile == null || gmailBackupModeUiState.mode != GmailBackupMode.MIRROR) {
             fullMirrorError = "Select a connected Mirror account first."
             return
         }
-        val immutableProfile = profile.copy()
-        isCreatingFullMirrorPreview = true
         fullMirrorError = null
         fullMirrorPreview = null
         viewModelScope.launch {
             fullMirrorCoordinator.reconcileFailedConfirmedPlans()
-            FullMirrorPreviewService(context).createPreview(immutableProfile, includeContactNames)
-                .onSuccess { preview -> fullMirrorPreview = preview }
-                .onFailure { error -> fullMirrorError = error.message ?: "Full Mirror preview failed safely." }
+            when (val result = fullMirrorPreviewCoordinator.enqueue(
+                profile.copy(),
+                includeContactNames
+            )) {
+                is FullMirrorPreviewEnqueueResult.Enqueued -> {
+                    fullMirrorPreviewWorkId = result.workId
+                    isCreatingFullMirrorPreview = true
+                    updateStatus("Full Mirror preview queued.")
+                }
+                is FullMirrorPreviewEnqueueResult.AlreadyRunning -> {
+                    fullMirrorPreviewWorkId = result.workId
+                    isCreatingFullMirrorPreview = true
+                    updateStatus("Continuing the existing Full Mirror preview.")
+                }
+                is FullMirrorPreviewEnqueueResult.Blocked -> {
+                    fullMirrorError = result.reason
+                }
+            }
+        }
+    }
+
+    fun cancelFullMirrorPreview() {
+        val workId = fullMirrorPreviewWorkId ?: return
+        val scanId = fullMirrorPreviewProgress?.scanId
+            ?: FullMirrorPreviewRecoveryState.state.value?.scanId
+            ?: return
+        viewModelScope.launch {
+            fullMirrorPreviewCoordinator.cancel(workId, scanId)
+            fullMirrorPreview = null
+            fullMirrorError = "Full Mirror preview cancelled safely."
             isCreatingFullMirrorPreview = false
         }
     }
@@ -565,6 +606,103 @@ class HomeViewModel(
         isGmailBackupCancellationRequested = true
         updateStatus("Cancelling Gmail backup…")
         gmailWorkCoordinator.cancel(workId)
+    }
+
+    private fun observeFullMirrorPreviewWork() = viewModelScope.launch {
+        fullMirrorPreviewCoordinator.observe().collectLatest { infos ->
+            val recovery = FullMirrorPreviewRecoveryState.state.value
+            val preferredWorkId = recovery?.workId ?: fullMirrorPreviewWorkId
+            val selected = infos.filter {
+                FullMirrorPreviewWorkContract.isActive(it.state)
+            }.maxByOrNull {
+                FullMirrorPreviewWorkContract.createdAt(it.tags)
+            } ?: infos.firstOrNull { it.id == preferredWorkId }
+            ?: infos.maxByOrNull {
+                FullMirrorPreviewWorkContract.createdAt(it.tags)
+            }
+            selected?.let { info ->
+                val scanId = FullMirrorPreviewWorkContract.scanId(info.tags)
+                if (scanId != null) {
+                    FullMirrorPreviewDiagnostics.workState(
+                        scanId,
+                        info.id,
+                        info.state.name,
+                        info.runAttemptCount,
+                        info.generation
+                    )
+                }
+            }
+            fullMirrorPreviewWorkId = recovery?.workId
+                ?: selected?.id
+            isCreatingFullMirrorPreview = (selected?.state?.let {
+                FullMirrorPreviewWorkContract.isActive(it)
+            } == true) || recovery?.pending == true
+            fullMirrorPreviewProgress = selected?.let {
+                FullMirrorPreviewWorkContract.readProgress(it.progress)
+            } ?: recovery?.progress
+            val result = selected?.let {
+                FullMirrorPreviewWorkContract.readResult(it.outputData)
+            }
+            when (result?.state) {
+                FullMirrorPreviewScanState.PUBLISHED -> {
+                    val runId = result.runId ?: return@collectLatest
+                    fullMirrorPreview = withContext(Dispatchers.IO) {
+                        FullMirrorPreviewPersistence.load(
+                            DatabaseProvider.getDatabase(getApplication()),
+                            runId
+                        )
+                    }
+                    fullMirrorError = null
+                    isCreatingFullMirrorPreview = false
+                    FullMirrorPreviewRecoveryState.clear(result.scanId)
+                    updateStatus("Full Mirror preview ready.")
+                }
+                FullMirrorPreviewScanState.FAILED,
+                FullMirrorPreviewScanState.EXPIRED -> {
+                    fullMirrorPreview = null
+                    fullMirrorError = "Full Mirror preview paused safely. No executable plan was created."
+                    isCreatingFullMirrorPreview = false
+                    FullMirrorPreviewRecoveryState.clear(result.scanId)
+                }
+                else -> if (
+                    selected?.state == WorkInfo.State.CANCELLED &&
+                    recovery?.pending != true
+                ) {
+                    fullMirrorPreview = null
+                    fullMirrorError = "Full Mirror preview cancelled safely."
+                    isCreatingFullMirrorPreview = false
+                }
+            }
+        }
+    }
+
+    private fun observeFullMirrorPreviewRecovery() = viewModelScope.launch {
+        FullMirrorPreviewRecoveryState.state.collectLatest { recovery ->
+            recovery ?: return@collectLatest
+            fullMirrorPreviewWorkId = recovery.workId ?: fullMirrorPreviewWorkId
+            fullMirrorPreviewProgress = recovery.progress
+            isCreatingFullMirrorPreview = recovery.pending
+            if (recovery.pending) {
+                fullMirrorError = null
+                updateStatus(
+                    io.github.isht1008.opensmsbackup.gmail.mirror.FullMirrorPreviewProgressText
+                        .title(recovery.progress.stage)
+                )
+            } else {
+                val runId = recovery.publishedRunId ?: return@collectLatest
+                if (fullMirrorPreview?.binding?.runId != runId) {
+                    fullMirrorPreview = withContext(Dispatchers.IO) {
+                        FullMirrorPreviewPersistence.load(
+                            DatabaseProvider.getDatabase(getApplication()),
+                            runId
+                        )
+                    }
+                }
+                isCreatingFullMirrorPreview = false
+                fullMirrorError = null
+                updateStatus("Full Mirror preview ready.")
+            }
+        }
     }
 
     private fun observeGmailBackupWork() {

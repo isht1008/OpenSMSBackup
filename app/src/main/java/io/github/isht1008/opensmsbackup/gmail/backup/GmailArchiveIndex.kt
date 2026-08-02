@@ -12,7 +12,9 @@ data class GmailArchiveMetadataReference(
     val deviceIdHeader: String?,
     val conversationKeyHeader: String?,
     val identityVersionHeader: String?,
-    val formatVersionHeader: String?
+    val formatVersionHeader: String?,
+    val androidThreadIdHeader: Long? = null,
+    val snapshotHashHeader: String? = null
 )
 
 data class GmailArchiveMessagePage(val messageIds: List<String>, val nextPageToken: String?)

@@ -66,6 +66,14 @@ data class CompleteLocalSmsDataset(
     val destructiveSafe: Boolean get() = complete && countConsistent && failure == FullMirrorFailureCategory.NONE
 }
 
+data class FullMirrorLocalScalar(
+    val androidThreadId: Long,
+    val snapshotHash: String,
+    val localSourceHash: String,
+    val messageCount: Int,
+    val diagnosticReason: FullMirrorFailureCategory? = null
+)
+
 data class OwnedRemoteSnapshot(
     val conversationKey: String,
     val messageId: String,

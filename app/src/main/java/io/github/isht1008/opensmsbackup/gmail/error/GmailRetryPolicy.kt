@@ -34,17 +34,17 @@ class GmailRetryPolicy(
                 val finalAttempt = attempt == maximumAttempts
 
                 if (!failure.retryable || finalAttempt) {
-                    logger(diagnostic(operationName, profileId, attempt, failure, null))
+                    logger(diagnostic(operationName, attempt, failure, null))
                     throw GmailOperationException(failure)
                 }
 
                 val exponential = 1_000L shl (attempt - 1)
-                val retryDelay = minOf(
-                    maximumDelayMillis,
-                    maxOf(exponential + jitterMillis(), failure.retryAfterMillis ?: 0L)
+                val retryDelay = maxOf(
+                    minOf(maximumDelayMillis, exponential + jitterMillis()),
+                    failure.retryAfterMillis ?: 0L
                 )
 
-                logger(diagnostic(operationName, profileId, attempt, failure, retryDelay))
+                logger(diagnostic(operationName, attempt, failure, retryDelay))
                 onRetry(attempt + 1, maximumAttempts)
                 onBackoff(retryDelay)
                 delayBlock(retryDelay)
@@ -56,12 +56,11 @@ class GmailRetryPolicy(
 
     private fun diagnostic(
         operation: String,
-        profileId: String,
         attempt: Int,
         failure: GmailFailure,
         delayMillis: Long?
     ): String =
-        "gmail_operation=$operation profile=${profileId.take(8)} attempt=$attempt " +
-            "status=${failure.httpStatusCode} reason=${failure.googleReason} " +
-            "category=${failure.category} retry_delay_ms=$delayMillis"
+        "gmail_operation=$operation scope=profile_bound attempt=$attempt " +
+            "status=${failure.httpStatusCode} " +
+            "category=${failure.category} subtype=${failure.safeExceptionSubtype} retry_delay_ms=$delayMillis"
 }
